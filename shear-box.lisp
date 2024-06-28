@@ -92,7 +92,7 @@
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 nil nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
-             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(0 0 nil)))
+             (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil 0 nil)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
              (lambda (i) (cl-mpm/bc::make-bc-fixed i '(nil nil 0)))
             ))
@@ -136,6 +136,12 @@
 (defun run (&optional (output-directory "./output/"))
   (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk")
                           *sim*)
+  (format t "Output dir ~A~%" output-directory)
+  (ensure-directories-exist (merge-pathnames output-directory))
+  (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk") *sim*)
+  (cl-mpm/output::save-simulation-parameters
+   (merge-pathnames output-directory "settings.json")
+   *sim*)
 
   (defparameter *data-t* (list))
   (defparameter *data-disp* (list))
@@ -143,13 +149,14 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((dt (cl-mpm:sim-dt *sim*))
-         (displacment 6d-3)
-         (total-time (* displacment 5d1)) 
-         (dt-scale 0.1d0)
+  (let* ((displacment 6d-3)
+         (total-time (* 10d0 displacment))
          (load-steps 200)
-         (target-time (/ total-time load-steps)) 
+         (target-time (/ total-time load-steps))
+         (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
+         (dt-scale 0.5d0)
+         (enable-plasticity t)
          (disp-inc (/ displacment load-steps)))
 
     (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
@@ -159,7 +166,9 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 10d0 (cl-mpm/setup::estimate-critical-damping *sim*))
+          (* 10d0 
+             (sqrt (cl-mpm:sim-mass-scale *sim*))
+             (cl-mpm/setup::estimate-critical-damping *sim*))
           (cl-mpm::sim-enable-damage *sim*) nil)
 
     (loop for mp across (cl-mpm:sim-mps *sim*)
@@ -175,7 +184,7 @@
 
     (loop for mp across (cl-mpm:sim-mps *sim*)
           do (when (= (cl-mpm/particle::mp-index mp) 0)
-               (setf (cl-mpm/particle::mp-enable-plasticity mp) t)))
+               (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plasticity)))
 
     (setf (cl-mpm:sim-damping-factor *sim*)
           (* 1d0 
@@ -184,6 +193,17 @@
           (cl-mpm::sim-enable-damage *sim*) t
           )
     (format t "Substeps ~D~%" substeps)
+
+    (cl-mpm:update-sim *sim*)
+    (let ((disp-av 0d0)
+          (load-av 0d0))
+      (push *t* *data-t*)
+      (push disp-av *data-disp*)
+      (push load-av *data-v*)
+      (setf load-av cl-mpm/penalty::*debug-force*)
+      (setf disp-av *displacement-increment*)
+      (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
+        (format stream "~f,~f~%" disp-av load-av)))
     (setf cl-mpm/penalty::*debug-force* 0)
     (time (loop for steps from 0 below load-steps
                 while *run-sim*
@@ -210,10 +230,7 @@
                        (push load-av *data-v*)
                        (format t "Disp ~E - Load ~E~%" disp-av load-av)
                        (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
-                         (format stream "~f,~f~%" 
-                                 disp-av 
-                                 ;(* load-av (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh *sim*)))
-                                 load-av)))
+                         (format stream "~f,~f~%" disp-av load-av)))
                      (incf *sim-step*)
                      (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
                        (format t "CFL dt estimate: ~f~%" dt-e)
