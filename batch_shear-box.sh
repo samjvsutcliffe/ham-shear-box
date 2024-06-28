@@ -17,7 +17,7 @@ echo "Running code"
 #rm -r output-*
 
 
-sbcl --dynamic-space-size 16000  --disable-debugger --load "build_step.lisp" --quit
+#sbcl --dynamic-space-size 16000  --disable-debugger --load "build_step.lisp" --quit
 
 #cp ~/quicklisp/local-projects/cl-mpm-worker/mpi-worker ./
 

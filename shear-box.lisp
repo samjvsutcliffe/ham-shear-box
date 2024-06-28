@@ -68,6 +68,7 @@
            :index 1
            :gravity (- gravity))))
         )
+      (defparameter *mesh-resolution* h-x)
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-enable-fbar sim) t)
@@ -106,7 +107,7 @@
     (let ((phi_0 (* 42d0 (/ pi 180)))
           (phi_1 (* 30d0 (/ pi 180)))
           (c_0 131d3)
-          (soft 10d0))
+          (soft (* 1000d0 *mesh-resolution*)))
       (setf
        c (* c_0 (exp (- (* soft ps))))
        phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))))))
@@ -144,10 +145,10 @@
   (vgplot:close-all-plots)
   (let* ((dt (cl-mpm:sim-dt *sim*))
          (displacment 6d-3)
-         (total-time (* displacment 1d1)) 
+         (total-time (* displacment 5d1)) 
          (dt-scale 0.1d0)
          (load-steps 200)
-         (target-time (/ displacment load-steps)) 
+         (target-time (/ total-time load-steps)) 
          (substeps (floor target-time dt))
          (disp-inc (/ displacment load-steps)))
 
@@ -207,6 +208,7 @@
                        (push *t* *data-t*)
                        (push disp-av *data-disp*)
                        (push load-av *data-v*)
+                       (format t "Disp ~E - Load ~E~%" disp-av load-av)
                        (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
                          (format stream "~f,~f~%" 
                                  disp-av 
