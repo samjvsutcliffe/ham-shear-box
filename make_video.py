@@ -52,14 +52,6 @@ def get_data(filename):
     damage = GetScalar("plastic_strain")
     return pd.DataFrame({"coord_x":xy[:,0], "coord_y":xy[:,1],"lx":lx,"ly":ly,"damage":damage})
 
-def get_data_all(folder,frame_number):
-    regex = re.compile(r'sim_\d+_{}'.format(frame_number))
-    files = list(filter(regex.search,os.listdir(folder)))
-    subframes = [get_data(folder + "/" + f) for f in files]
-    df = pd.concat(subframes)
-    return df
-
-
 
 
 import subprocess
@@ -72,31 +64,31 @@ plt.rc('axes', labelsize=8)
 width = 3.487
 height = width / 1.618
 
-water_height = 236
-xlim = [0,2600]
-ylim = [0,500]
-with open("output/settings.json") as f:
-    json_settings = json.load(f)
-    #print("Water level:{}".format(json_settings["OCEAN-HEIGHT"]))
-    #print("Domain size:{}".format(json_settings["DOMAIN-SIZE"]))
-    #water_height = json_settings["OCEAN-HEIGHT"]
-    water_height = 0
-    xlim = [0,json_settings["DOMAIN-SIZE"][0]]
-    ylim = [0,json_settings["DOMAIN-SIZE"][1]]
-    #ylim[0] = 20
+output_dir = "./ham-shear-box/output-8-1.0e+5/"
+
+xlim = [0.06,0.12+0.08]
+ylim = [0,0.10]
+#with open(output_dir+"settings.json") as f:
+#    json_settings = json.load(f)
+#    #print("Water level:{}".format(json_settings["OCEAN-HEIGHT"]))
+#    #print("Domain size:{}".format(json_settings["DOMAIN-SIZE"]))
+#    #water_height = json_settings["OCEAN-HEIGHT"]
+#    water_height = 0
+#    xlim = [0,json_settings["DOMAIN-SIZE"][0]]
+#    ylim = [0,json_settings["DOMAIN-SIZE"][1]]
+#    #ylim[0] = 20
 
 
 ice_height = 200
 
 plt.close("all")
-output_dir = "./output/"
 files = os.listdir(output_dir)
-finalcsv = re.compile("sim_0+_.*\.vtk")
+finalcsv = re.compile("sim_\d+.vtk")
 files_csvs = list(filter(finalcsv.match,files))
-
-#finalcsv = re.compile("sim_0+_.*\.vtk")
 framenumber_regex = re.compile("\d+")
-files_csvs = list(map(lambda x: framenumber_regex.findall(x)[1],files_csvs))
+files_csvs = list(map(lambda x: framenumber_regex.findall(x)[0],files_csvs))
+files_csvs.sort(key=int)
+files_csvs = list(map(lambda x: "sim_{}.vtk".format(x), files_csvs))
 print("files: {}".format(files_csvs))
 dt = 1e4/60
 time = []
@@ -112,15 +104,15 @@ def get_plot(i,fname):
     outname = "outframes/frame_{:05}.png".format(i)
     if NO_OVERWRITE and os.path.isfile(outname):
         return
-    df = get_data_all(output_dir,fname)
+    df = get_data(output_dir+"{}".format(fname))
     print("Plot frame {}".format(i),flush=True)
     ax = fig.add_subplot(111,aspect="equal")
     #df = full_data[i]
     patch_list=[]
-    patch = Rectangle(xy=(0,0) ,width=xlim[1], height=water_height,color="blue")
-    patch_sea = [patch]
-    ps = PatchCollection(patch_sea)
-    ax.add_collection(ps)
+    #patch = Rectangle(xy=(0,0) ,width=xlim[1], height=water_height,color="blue")
+    #patch_sea = [patch]
+    #ps = PatchCollection(patch_sea)
+    #ax.add_collection(ps)
 
     for a_x, a_y,lx,ly,damage in zip(df["coord_x"],
                                      df["coord_y"],
@@ -132,13 +124,13 @@ def get_plot(i,fname):
         patch_list.append(patch)
     p = PatchCollection(patch_list, cmap=cm.jet, alpha=1)
     p.set_array(df["damage"])
-    # p.set_clim([0,1.0])
+    #p.set_clim([0,1.0])
     ax.add_collection(p)
     fig.colorbar(p,location="bottom",label="damage")
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-    plt.title("t = {:.2f}s".format(i * dt))
+    # plt.title("t = {:.2f}s".format(i * dt))
     plt.savefig("outframes/frame_{:05}.png".format(i))
     plt.clf()
 
