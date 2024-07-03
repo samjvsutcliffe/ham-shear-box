@@ -38,6 +38,25 @@
                 density
                 ;; 'cl-mpm/particle::particle-chalk-brittle
                 ;; 'cl-mpm/particle::particle-vm
+
+                ;'cl-mpm/particle::particle-chalk-delayed
+                ;:E 1d9
+                ;:nu 0.24d0
+                ;:kt-res-ratio 1d-10
+                ;:kc-res-ratio 1d0
+                ;:g-res-ratio 1d-10
+                ;:friction-angle 43d0
+                ;:initiation-stress init-stress;18d3
+                ;:delay-time 1d-3
+                ;:delay-exponent 1d0
+                ;:ductility ductility
+                ;:local-length length-scale
+                ;:local-length-damaged 10d-10
+                ;:enable-plasticity t
+                ;:psi 0d0
+                ;:phi (* 42d0 (/ pi 180))
+                ;:c 131d3
+
                 'cl-mpm/particle::particle-mc
                 :E 1d9
                 :nu 0.24d0
@@ -98,7 +117,7 @@
             ))
       sim)))
 ;;Ad-hoc uncoupled strain-softening plasticity
-(defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-mc) dt)
+(defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-mc) dt) 
   (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
                    (c cl-mpm/particle::mp-c)
                    (phi cl-mpm/particle::mp-phi)
@@ -107,10 +126,16 @@
     (let ((phi_0 (* 42d0 (/ pi 180)))
           (phi_1 (* 30d0 (/ pi 180)))
           (c_0 131d3)
-          (soft (* 1000d0 *mesh-resolution*)))
+          ;(soft (* 1000d0 *mesh-resolution*))
+          (soft 10d0))
       (setf
        c (* c_0 (exp (- (* soft ps))))
-       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))))))
+       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps))))))))
+  )
+
+(defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
+  ;;Do sweet nothing 
+  )
 
 (defmethod cl-mpm::update-node-forces ((sim cl-mpm::mpm-sim))
   (with-accessors ((damping cl-mpm::sim-damping-factor)
@@ -151,7 +176,7 @@
   (vgplot:close-all-plots)
   (let* ((displacment 6d-3)
          (total-time (* 10d0 displacment))
-         (load-steps 200)
+         (load-steps 500)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -187,11 +212,13 @@
                (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plasticity)))
 
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 1d0 
+          (* 5d0 
              (sqrt (cl-mpm:sim-mass-scale *sim*))
              (cl-mpm/setup::estimate-critical-damping *sim*))
           (cl-mpm::sim-enable-damage *sim*) t
           )
+    ;(setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) substeps)
+
     (format t "Substeps ~D~%" substeps)
 
     (cl-mpm:update-sim *sim*)
@@ -221,9 +248,6 @@
                           (incf disp-av (/ *displacement-increment* substeps))
                           (incf *displacement-increment* (/ disp-inc substeps))
                           (incf *t* (cl-mpm::sim-dt *sim*))))
-
-                       ;; (setf load-av cl-mpm/penalty::*debug-force*)
-                       ;; (setf disp-av *displacement-increment*)
 
                        (push *t* *data-t*)
                        (push disp-av *data-disp*)
