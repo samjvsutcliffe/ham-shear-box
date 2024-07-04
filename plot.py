@@ -5,37 +5,58 @@ import numpy as np
 import re
 
 from scipy import integrate
-#def calculate_gf(disp,load):
-#    return integrate.trapz(load,disp)#/(0.102*0.6*13e-3)
-#
-#data = pd.read_csv("load-disp.csv")
-#
-#
-#print("GF experimental:",calculate_gf(1e0*data["disp"],100e-3*data["load"]))
-#
-#
+
+def extract_vals(f):
+    output,refine,load = f.split("-")
+    return float(refine),float(load)
+
 regex = re.compile(r'^output-.*')
 folders = list(filter(regex.search,os.listdir("./")))
-#
-#plt.figure()
-#plt.plot(data["disp"],data["load"],label="Data")
-#lower = pd.read_csv("lower.csv")
-#upper = pd.read_csv("upper.csv")
-#x_min = min(lower["x"].min(),upper["x"].min())
-#x_max = max(lower["x"].max(),upper["x"].max())
-#x_samples = np.linspace(x_min,x_max,100)
-#
-#lower_y = np.interp(x_samples,lower["x"],1e3*lower["y"])
-#upper_y = np.interp(x_samples,upper["x"],1e3*upper["y"])
-#
-#plt.fill_between(x_samples,lower_y,upper_y)
+
 
 plt.figure()
 for i in folders:
     print("loading folder: ",i)
     mpm = pd.read_csv("./{}/disp.csv".format(i))
-    plt.plot(1e3*mpm["disp"],(1e-3/0.06)*mpm["load"],label=i,marker=".")
+    plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load"].values,label=i,marker=".")
 plt.xlabel("Displacement (mm)")
 plt.ylabel("Load (N)")
+plt.legend()
+
+surcharge = []
+peak = []
+residual = []
+plt.figure()
+for f in folders:
+    refine,load = extract_vals(f)
+    mpm = pd.read_csv("./{}/disp.csv".format(f))
+    width = 0.06
+    p = mpm["load"].max()/width
+    r = mpm["load"].values[-1]/width
+    surcharge.append(load)
+    peak.append(p)
+    residual.append(r)
+    # plt.scatter(load,r)
+    # plt.scatter(load,p)
+peak = [x for y, x in sorted(zip(surcharge, peak))]
+residual = [x for y, x in sorted(zip(surcharge, residual))]
+surcharge = sorted(surcharge)
+
+plt.scatter(surcharge,peak,label="Peak")
+plt.scatter(surcharge,residual,label="Residual")
+m,b = np.polyfit(surcharge, peak, 1)
+print(m)
+plt.axline((0,b),slope=m,label="Peak, {:.2f}, {:.2f}kN".format(np.arctan(m)*180/np.pi,b*1e-3))
+m,b = np.polyfit(surcharge, residual, 1)
+plt.axline((0,b),slope=m,label="Residual, {:.2f}, {:.2f}kN".format(np.arctan(m)*180/np.pi,b*1e-3))
+
+
+
+plt.plot(surcharge,peak)
+plt.plot(surcharge,residual)
+plt.axline((0,0),slope=np.sin(30 * np.pi/180),ls="--")
+plt.axline((0,131e3),slope=np.sin(42 * np.pi/180),ls="--")
+plt.xlim([0,500e3])
+plt.ylim([0,500e3])
 plt.legend()
 plt.show()

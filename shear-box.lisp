@@ -64,6 +64,7 @@
                 :psi 0d0
                 :phi (* 42d0 (/ pi 180))
                 :c 131d3
+
                 :index 0
                 :gravity 0.0d0
                 ))))
@@ -123,15 +124,15 @@
                    (phi cl-mpm/particle::mp-phi)
                    )
       mp
+      ;(setf phi (* 30d0 (/ pi 180))
+      ;      c 0d0)
     (let ((phi_0 (* 42d0 (/ pi 180)))
           (phi_1 (* 30d0 (/ pi 180)))
           (c_0 131d3)
-          ;(soft (* 1000d0 *mesh-resolution*))
-          (soft 10d0))
+          (soft 100d0))
       (setf
        c (* c_0 (exp (- (* soft ps))))
-       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps))))))))
-  )
+       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))))))
 
 (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
   ;;Do sweet nothing 
@@ -174,9 +175,9 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 6d-3)
-         (total-time (* 10d0 displacment))
-         (load-steps 500)
+  (let* ((displacment 3d-3)
+         (total-time (* 100d0 displacment))
+         (load-steps 200)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -212,7 +213,7 @@
                (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plasticity)))
 
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 5d0 
+          (* 0.1d0 
              (sqrt (cl-mpm:sim-mass-scale *sim*))
              (cl-mpm/setup::estimate-critical-damping *sim*))
           (cl-mpm::sim-enable-damage *sim*) t
