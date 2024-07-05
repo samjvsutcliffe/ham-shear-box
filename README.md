@@ -1,2 +1,2 @@
-# ham-template
-Template for projects that run on hamilton
+# ham-shear-box
+Project files for running a shear-box test on hamilton
