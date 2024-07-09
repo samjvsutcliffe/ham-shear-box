@@ -7,7 +7,7 @@
 (setf *block-compile-default* t)
 
 (declaim (sb-ext:muffle-conditions sb-ext:compiler-note))
-;(pushnew :cl-mpm-pic *features*)
+(pushnew :cl-mpm-pic *features*)
 (ql:quickload :cl-mpm-worker)
 (in-package :cl-mpm-worker)
 (ql:quickload :cl-mpm)

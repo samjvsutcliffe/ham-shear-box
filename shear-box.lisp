@@ -64,7 +64,9 @@
                 :psi 0d0
                 :phi (* 42d0 (/ pi 180))
                 :c 131d3
-
+                :phi-r (* 30d0 (/ pi 180))
+                :c-r 0d0
+                :softening 0d0
                 :index 0
                 :gravity 0.0d0
                 ))))
@@ -118,21 +120,21 @@
             ))
       sim)))
 ;;Ad-hoc uncoupled strain-softening plasticity
-(defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-mc) dt) 
-  (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
-                   (c cl-mpm/particle::mp-c)
-                   (phi cl-mpm/particle::mp-phi)
-                   )
-      mp
-      ;(setf phi (* 30d0 (/ pi 180))
-      ;      c 0d0)
-    (let ((phi_0 (* 42d0 (/ pi 180)))
-          (phi_1 (* 30d0 (/ pi 180)))
-          (c_0 131d3)
-          (soft 100d0))
-      (setf
-       c (* c_0 (exp (- (* soft ps))))
-       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))))))
+;(defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-mc) dt) 
+;  (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
+;                   (c cl-mpm/particle::mp-c)
+;                   (phi cl-mpm/particle::mp-phi)
+;                   )
+;      mp
+;      ;(setf phi (* 30d0 (/ pi 180))
+;      ;      c 0d0)
+;    (let ((phi_0 (* 42d0 (/ pi 180)))
+;          (phi_1 (* 30d0 (/ pi 180)))
+;          (c_0 131d3)
+;          (soft 000d0))
+;      (setf
+;       c (* c_0 (exp (- (* soft ps))))
+;       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))))))
 
 (defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
   ;;Do sweet nothing 
@@ -160,8 +162,13 @@
         ,@body)))
 
 (defun run (&optional (output-directory "./output/"))
-  (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk")
-                          *sim*)
+
+  ;(cl-mpm/setup::remove-sdf *sim*
+  ;                          (lambda (p)
+  ;                            (if (> (magicl:tref p 1 0) 0.03e0)
+  ;                                0d0
+  ;                                1d0)))
+  ;(cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk") *sim*)
   (format t "Output dir ~A~%" output-directory)
   (ensure-directories-exist (merge-pathnames output-directory))
   (cl-mpm/output:save-vtk-mesh (merge-pathnames output-directory "mesh.vtk") *sim*)
@@ -175,9 +182,9 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 3d-3)
-         (total-time (* 100d0 displacment))
-         (load-steps 200)
+  (let* ((displacment 6d-3)
+         (total-time (* 10d0 displacment))
+         (load-steps 100)
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
@@ -192,7 +199,7 @@
                     (format t "CFL step count estimate: ~D~%" substeps-e)
                     (setf substeps substeps-e))
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 10d0 
+          (* 1d0 
              (sqrt (cl-mpm:sim-mass-scale *sim*))
              (cl-mpm/setup::estimate-critical-damping *sim*))
           (cl-mpm::sim-enable-damage *sim*) nil)
@@ -213,7 +220,7 @@
                (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plasticity)))
 
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 0.1d0 
+          (* 1d-3
              (sqrt (cl-mpm:sim-mass-scale *sim*))
              (cl-mpm/setup::estimate-critical-damping *sim*))
           (cl-mpm::sim-enable-damage *sim*) t
@@ -249,6 +256,9 @@
                           (incf disp-av (/ *displacement-increment* substeps))
                           (incf *displacement-increment* (/ disp-inc substeps))
                           (incf *t* (cl-mpm::sim-dt *sim*))))
+
+                       (setf load-av cl-mpm/penalty::*debug-force*)
+                       (setf disp-av *displacement-increment*)
 
                        (push *t* *data-t*)
                        (push disp-av *data-disp*)

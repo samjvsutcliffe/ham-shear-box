@@ -20,7 +20,7 @@ for i in folders:
     mpm = pd.read_csv("./{}/disp.csv".format(i))
     plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load"].values,label=i,marker=".")
 plt.xlabel("Displacement (mm)")
-plt.ylabel("Load (N)")
+plt.ylabel("Shear stress (kN/m^2)")
 plt.legend()
 
 surcharge = []
@@ -41,6 +41,9 @@ for f in folders:
 peak = [x for y, x in sorted(zip(surcharge, peak))]
 residual = [x for y, x in sorted(zip(surcharge, residual))]
 surcharge = sorted(surcharge)
+peak = np.array(peak)
+residual = np.array(residual)
+surcharge = np.array(surcharge)
 
 plt.scatter(surcharge,peak,label="Peak")
 plt.scatter(surcharge,residual,label="Residual")
@@ -58,5 +61,7 @@ plt.axline((0,0),slope=np.sin(30 * np.pi/180),ls="--")
 plt.axline((0,131e3),slope=np.sin(42 * np.pi/180),ls="--")
 plt.xlim([0,500e3])
 plt.ylim([0,500e3])
+plt.xlabel("Surcharge kPa")
+plt.xlabel("Shear stress kPa")
 plt.legend()
 plt.show()
