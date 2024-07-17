@@ -18,7 +18,7 @@ export LOAD=200000
 sbatch batch_shear-box.sh 
 #export LOAD=300000
 #sbatch batch_shear-box.sh 
-
+#
 #export LOAD=100000
 
 #export REFINE=1

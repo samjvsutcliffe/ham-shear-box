@@ -9,8 +9,8 @@
   (let* ((sim (cl-mpm/setup::make-block
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
-               :sim-type 'cl-mpm::mpm-sim-usf
-               ;:sim-type 'cl-mpm/damage::mpm-sim-damage
+               ;:sim-type 'cl-mpm::mpm-sim-usf
+               :sim-type 'cl-mpm/damage::mpm-sim-damage
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -24,11 +24,15 @@
     (progn
       (let* ((angle-rad (* angle (/ pi 180)))
              ;; (init-stress 60d3)
-             (init-stress 50d3)
-             (gf 48d0)
-             (length-scale 1.5d-2)
+             (init-stress 80d3)
+             ;(gf 48d0)
+             (gf 4d0)
+             (length-scale h)
+             ;(length-scale 1.5d-2)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
+             (ductility 10d0)
              )
+        (format t "Ductility ~E~%" ductility)
         (setf (cl-mpm:sim-mps sim)
               (cl-mpm/setup::make-mps-from-list
                (cl-mpm/setup::make-block-mps-list
@@ -39,34 +43,35 @@
                 ;; 'cl-mpm/particle::particle-chalk-brittle
                 ;; 'cl-mpm/particle::particle-vm
 
-                ;'cl-mpm/particle::particle-chalk-delayed
+                'cl-mpm/particle::particle-chalk-delayed
+                :E 1d9
+                :nu 0.24d0
+                :kt-res-ratio 1d-9
+                :kc-res-ratio 1d0
+                :g-res-ratio 1d-9
+                :friction-angle 42d0
+                :initiation-stress init-stress;18d3
+                :delay-time 1d-4
+                :delay-exponent 1d0
+                :ductility ductility
+                :local-length length-scale
+                :local-length-damaged 10d-10
+                :enable-plasticity nil
+                :psi 0d0
+                :phi (* 42d0 (/ pi 180))
+                :c (* 131d3 10d0)
+
+                ;'cl-mpm/particle::particle-mc
                 ;:E 1d9
                 ;:nu 0.24d0
-                ;:kt-res-ratio 1d-10
-                ;:kc-res-ratio 1d0
-                ;:g-res-ratio 1d-10
-                ;:friction-angle 43d0
-                ;:initiation-stress init-stress;18d3
-                ;:delay-time 1d-3
-                ;:delay-exponent 1d0
-                ;:ductility ductility
-                ;:local-length length-scale
-                ;:local-length-damaged 10d-10
                 ;:enable-plasticity t
                 ;:psi 0d0
                 ;:phi (* 42d0 (/ pi 180))
                 ;:c 131d3
+                ;:phi-r (* 30d0 (/ pi 180))
+                ;:c-r 0d0
+                ;:softening 10d0
 
-                'cl-mpm/particle::particle-mc
-                :E 1d9
-                :nu 0.24d0
-                :enable-plasticity t
-                :psi 0d0
-                :phi (* 42d0 (/ pi 180))
-                :c 131d3
-                :phi-r (* 30d0 (/ pi 180))
-                :c-r 0d0
-                :softening 0d0
                 :index 0
                 :gravity 0.0d0
                 ))))
@@ -87,6 +92,7 @@
            :E 1d9
            :nu 0.24d0
            :initiation-stress 1d20
+           :local-length 0d0
            :index 1
            :gravity (- gravity))))
         )
@@ -182,24 +188,18 @@
   (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
     (format stream "disp,load~%"))
   (vgplot:close-all-plots)
-  (let* ((displacment 6d-3)
+  (let* ((displacment 1d-3)
          (total-time (* 10d0 displacment))
-         (load-steps 100)
+         (load-steps (floor (* 100 (/ displacment 1d-3))))
          (target-time (/ total-time load-steps))
          (dt (cl-mpm:sim-dt *sim*))
          (substeps (floor target-time dt))
-         (dt-scale 0.5d0)
+         (dt-scale 0.25d0)
          (enable-plasticity t)
          (disp-inc (/ displacment load-steps)))
 
-    (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
-    (cl-mpm::update-sim *sim*)
-    (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
-                    (format t "CFL dt estimate: ~f~%" dt-e)
-                    (format t "CFL step count estimate: ~D~%" substeps-e)
-                    (setf substeps substeps-e))
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 1d0 
+          (* 0.5d0 
              (sqrt (cl-mpm:sim-mass-scale *sim*))
              (cl-mpm/setup::estimate-critical-damping *sim*))
           (cl-mpm::sim-enable-damage *sim*) nil)
@@ -208,10 +208,13 @@
           do (when (= (cl-mpm/particle::mp-index mp) 0)
                (setf (cl-mpm/particle::mp-enable-plasticity mp) nil)))
 
+    (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
+
     (cl-mpm/dynamic-relaxation:converge-quasi-static
      *sim*
      :energy-crit 1d-2
      :oobf-crit 1d-2
+     :dt-scale 0.5d0
      :substeps 20
      :conv-steps 200)
 
@@ -220,12 +223,25 @@
                (setf (cl-mpm/particle::mp-enable-plasticity mp) enable-plasticity)))
 
     (setf (cl-mpm:sim-damping-factor *sim*)
-          (* 1d-3
+          (* 1d-1
              (sqrt (cl-mpm:sim-mass-scale *sim*))
              (cl-mpm/setup::estimate-critical-damping *sim*))
-          (cl-mpm::sim-enable-damage *sim*) t
-          )
-    ;(setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) substeps)
+          (cl-mpm::sim-enable-damage *sim*) t)
+
+    (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
+    (cl-mpm::update-sim *sim*)
+    (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
+                    (format t "CFL dt estimate: ~f~%" dt-e)
+                    (format t "CFL step count estimate: ~D~%" substeps-e)
+                    (setf substeps substeps-e))
+
+    (loop for mp across (cl-mpm:sim-mps *sim*)
+          do (when (typep mp 'cl-mpm/particle::particle-damage) 
+               (when (= (cl-mpm/particle::mp-index mp) 0)
+                (setf (cl-mpm/particle::mp-delay-time mp) (* target-time 1d-2)))))
+
+    (when (slot-exists-p *sim* 'cl-mpm/damage::delocal-counter-max)
+      (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) substeps))
 
     (format t "Substeps ~D~%" substeps)
 
@@ -245,8 +261,9 @@
                 do
                    (progn
                      (format t "Step ~d ~%" steps)
-                     (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*)
-                     (cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
+                     (when (= (mod steps 10) 0)
+                       (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~5,'0d.vtk" *sim-step*)) *sim*))
+                     ;(cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~5,'0d.vtk" *sim-step*)) *sim*)
                      (let ((load-av 0d0)
                            (disp-av 0d0))
                        (time
@@ -257,7 +274,7 @@
                           (incf *displacement-increment* (/ disp-inc substeps))
                           (incf *t* (cl-mpm::sim-dt *sim*))))
 
-                       (setf load-av cl-mpm/penalty::*debug-force*)
+                       (setf load-av (get-load))
                        (setf disp-av *displacement-increment*)
 
                        (push *t* *data-t*)
@@ -277,7 +294,7 @@
 (defun mpi-loop ()
   (let* ((refine (if (uiop:getenv "REFINE") (parse-integer (uiop:getenv "REFINE")) 2))
          (load (if (uiop:getenv "LOAD") (parse-float:parse-float (uiop:getenv "LOAD")) 72.5d3))
-         (output-dir (format nil "./output-~D-~E/" refine load)))
+         (output-dir (format nil "./output-~D-~f/" refine load)))
     (format t "Refine: ~A~%" refine)
     (format t "Load: ~A~%" load)
     (ensure-directories-exist (merge-pathnames output-dir))

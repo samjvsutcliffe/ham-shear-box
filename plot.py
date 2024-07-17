@@ -8,6 +8,8 @@ from scipy import integrate
 
 def extract_vals(f):
     output,refine,load = f.split("-")
+    #Because lisp will format doubles as 1d2, and python wants 1e2
+    load = load.replace("d","e")
     return float(refine),float(load)
 
 regex = re.compile(r'^output-.*')
@@ -30,14 +32,15 @@ plt.figure()
 for f in folders:
     refine,load = extract_vals(f)
     mpm = pd.read_csv("./{}/disp.csv".format(f))
-    width = 0.06
-    p = mpm["load"].max()/width
-    r = mpm["load"].values[-1]/width
-    surcharge.append(load)
-    peak.append(p)
-    residual.append(r)
-    # plt.scatter(load,r)
-    # plt.scatter(load,p)
+    if len(mpm["load"]) > 0:
+        width = 0.06
+        p = mpm["load"].max()/width
+        r = (mpm["load"].values[-1])/width
+        surcharge.append(load)
+        peak.append(p)
+        residual.append(r)
+        # plt.scatter(load,r)
+        # plt.scatter(load,p)
 peak = [x for y, x in sorted(zip(surcharge, peak))]
 residual = [x for y, x in sorted(zip(surcharge, residual))]
 surcharge = sorted(surcharge)
@@ -57,11 +60,11 @@ plt.axline((0,b),slope=m,label="Residual, {:.2f}, {:.2f}kN".format(np.arctan(m)*
 
 plt.plot(surcharge,peak)
 plt.plot(surcharge,residual)
-plt.axline((0,0),slope=np.sin(30 * np.pi/180),ls="--")
-plt.axline((0,131e3),slope=np.sin(42 * np.pi/180),ls="--")
+plt.axline((0,0),slope=np.tan(30 * np.pi/180),ls="--")
+plt.axline((0,131e3),slope=np.tan(42 * np.pi/180),ls="--")
 plt.xlim([0,500e3])
 plt.ylim([0,500e3])
 plt.xlabel("Surcharge kPa")
-plt.xlabel("Shear stress kPa")
+plt.ylabel("Shear stress kPa")
 plt.legend()
 plt.show()
