@@ -24,7 +24,10 @@ from matplotlib import cm
 from multiprocessing import Pool
 
 
+
+
 def get_data(filename):
+    global data_name
     reader = vtkUnstructuredGridReader()
     reader.SetFileName(filename)
     reader.ReadAllVectorsOn()
@@ -43,8 +46,9 @@ def get_data(filename):
         return vtk_to_numpy(scalar_data.GetArray(scalar_names.index(scalar_name)))
     lx = GetScalar("size_x")
     ly = GetScalar("size_y")
+    damage = GetScalar(data_name)
     #damage = GetScalar("plastic_strain")
-    damage = GetScalar("damage")
+    #damage = GetScalar("damage")
     return pd.DataFrame({"coord_x":xy[:,0], "coord_y":xy[:,1],"lx":lx,"ly":ly,"damage":damage})
 
 
@@ -137,11 +141,18 @@ def replot():
 
 
 
+data_name = "damage"
 def on_press(event):
-    global current_frame
+    global current_frame,data_name
     # print('press', event.key)
     sys.stdout.flush()
     # print(event.key)
+    if event.key == 'p':
+        data_name = "plastic_strain"
+        replot()
+    if event.key == 'd':
+        data_name = "damage"
+        replot()
     if event.key == 'right':
         current_frame = min(current_frame + 1,max_frame)
         replot()
