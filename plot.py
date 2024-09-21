@@ -36,7 +36,6 @@ for unique_id in unique_ids:
     plt.ylabel("Load (N)")
     plt.legend()
     plt.savefig("load-disp.pdf")
-
     # plt.figure()
     # for i in folders:
     #     print("loading folder: ",i)
