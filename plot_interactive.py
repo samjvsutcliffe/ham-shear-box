@@ -66,6 +66,7 @@ height = width / 1.618
 
 output_regex = re.compile("output-\d+")
 output_list = list(filter(output_regex.match,os.listdir()))
+output_list.sort(key=lambda x: float(x.split("-")[1]))
 print(output_list)
 output_dir = "./{}/".format(output_list[int(input())])
 
@@ -91,7 +92,7 @@ finalcsv = re.compile("sim_\d+.vtk")
 files_csvs = list(filter(finalcsv.match,files))
 framenumber_regex = re.compile("\d+")
 files_csvs = list(map(lambda x: framenumber_regex.findall(x)[0],files_csvs))
-files_csvs.sort(key=int)
+files_csvs.sort(key=float)
 files_csvs = list(map(lambda x: "sim_{}.vtk".format(x), files_csvs))
 print("files: {}".format(files_csvs))
 dt = 1e4/60
@@ -124,7 +125,7 @@ def get_plot(i,fname):
     p.set_array(df["damage"])
     #p.set_clim([0,1.0])
     ax.add_collection(p)
-    fig.colorbar(p,location="bottom",label="damage")
+    fig.colorbar(p,location="bottom",label=data_name)
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
@@ -152,6 +153,12 @@ def on_press(event):
         replot()
     if event.key == 'd':
         data_name = "damage"
+        replot()
+    if event.key == 'x':
+        data_name = "disp_x"
+        replot()
+    if event.key == 'i':
+        data_name = "sig_xy"
         replot()
     if event.key == 'right':
         current_frame = min(current_frame + 1,max_frame)

@@ -21,17 +21,28 @@ for f in folders:
     if u not in unique_ids:
         unique_ids.append(u)
 
+unique_ids.sort(key=float)
 print(unique_ids)
+# unique_ids = ["4"]
 
+prop_cycle = plt.rcParams['axes.prop_cycle']
+colours = prop_cycle.by_key()['color']
 
-for unique_id in unique_ids:
+for colour,unique_id in zip(colours,unique_ids):
     plt.figure(1)
     unreg = re.compile(r'^output-{}-.*'.format(unique_id))
     folders = list(filter(unreg.search,os.listdir("./")))
     for i in folders:
         print("loading folder: ",i)
         mpm = pd.read_csv("./{}/disp.csv".format(i))
-        plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load"].values,label=i,marker=".")
+        l=plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load"].values,label=i,marker=".")
+        maxload = (1e-3/0.06)*mpm["load"].max()
+        maxp=mpm["plastic"].max()
+        maxd=mpm["damage"].max()
+        maxp=0.01e0
+        maxd=1e3
+        plt.plot(1e3*mpm["disp"].values,maxload*mpm["plastic"].values/maxp,label="",marker="x",ls="--",c=l[0].get_color())
+        plt.plot(1e3*mpm["disp"].values,maxload*mpm["damage"].values/maxd,label="",marker="o",ls="--",c=l[0].get_color())
     plt.xlabel("Displacement (mm)")
     plt.ylabel("Load (N)")
     plt.legend()
@@ -67,18 +78,19 @@ for unique_id in unique_ids:
         peak = [x for y, x in sorted(zip(surcharge, peak))]
         residual = [x for y, x in sorted(zip(surcharge, residual))]
         surcharge = sorted(surcharge)
+
         
-        plt.scatter(surcharge,peak,label="Peak - {}".format(unique_id))
-        plt.scatter(surcharge,residual,label="Residual - {}".format(unique_id))
-
-        p = plt.plot(surcharge,peak)
-        r = plt.plot(surcharge,residual)
-
         m,b = np.polyfit(surcharge, peak, 1)
         print(m)
-        plt.axline((0,b),slope=m,label="Peak, {:.2f}, {:.2f}kN".format(np.arctan(m)*180/np.pi,b*1e-3),c=p[0].get_color())
+        plt.scatter(surcharge,peak,label="Peak - {} - {:.2f}, {:.2f}kN".format(unique_id,np.arctan(m)*180/np.pi,b*1e-3),color=colour)
+
+        p = plt.plot(surcharge,peak,color=colour)
+
+        plt.axline((0,b),slope=m,c=p[0].get_color())
         m,b = np.polyfit(surcharge, residual, 1)
-        plt.axline((0,b),slope=m,label="Residual, {:.2f}, {:.2f}kN".format(np.arctan(m)*180/np.pi,b*1e-3),c=r[0].get_color())
+        plt.scatter(surcharge,residual,label="Residual - {} - {:.2f}, {:.2f}kN".format(unique_id,np.arctan(m)*180/np.pi,b*1e-3),color=colour,marker="x")
+        r = plt.plot(surcharge,residual,color=colour)
+        plt.axline((0,b),slope=m,c=r[0].get_color())
         
         
         
