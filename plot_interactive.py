@@ -157,6 +157,9 @@ def on_press(event):
     if event.key == 'x':
         data_name = "disp_x"
         replot()
+    if event.key == 'c':
+        data_name = "disp_y"
+        replot()
     if event.key == 'i':
         data_name = "sig_xy"
         replot()
