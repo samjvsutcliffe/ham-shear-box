@@ -51,6 +51,13 @@ def get_data(filename):
     #damage = GetScalar("damage")
     return pd.DataFrame({"coord_x":xy[:,0], "coord_y":xy[:,1],"lx":lx,"ly":ly,"damage":damage})
 
+def get_data_all(folder,frame_number):
+    regex = re.compile(r'sim_\d+_{}'.format(frame_number))
+    files = list(filter(regex.search,os.listdir(folder)))
+    subframes = [get_data(folder + "/" + f) for f in files]
+    df = pd.concat(subframes)
+    return df
+
 
 
 import subprocess
@@ -88,22 +95,24 @@ ice_height = 200
 
 plt.close("all")
 files = os.listdir(output_dir)
-finalcsv = re.compile("sim_\d+.vtk")
+finalcsv = re.compile("sim(_0+)?_\d+.vtk")
 files_csvs = list(filter(finalcsv.match,files))
 
-finalpbs = re.compile("sim_pb_\d+.json")
+finalpbs = re.compile("sim_pb(_0+)?_\d+.json")
 files_pbs = list(filter(finalpbs.match,files))
+print(files_pbs)
 
 framenumber_regex = re.compile("\d+")
-files_csvs = list(map(lambda x: framenumber_regex.findall(x)[0],files_csvs))
+files_csvs = list(map(lambda x: framenumber_regex.findall(x)[-1],files_csvs))
 files_csvs.sort(key=float)
-files_csvs = list(map(lambda x: "sim_{}.vtk".format(x), files_csvs))
+#files_csvs = list(map(lambda x: "sim_{}.vtk".format(x), files_csvs))
 
 
 print(files_pbs)
-files_pbs = list(map(lambda x: framenumber_regex.findall(x)[0],files_pbs))
+files_pbs = list(map(lambda x: framenumber_regex.findall(x)[-1],files_pbs))
 files_pbs.sort(key=float)
-files_pbs = list(map(lambda x: "sim_pb_{}.json".format(x), files_pbs))
+files_pbs
+#files_pbs = list(map(lambda x: "sim_pb_{}.json".format(x), files_pbs))
 
 print("files: {}".format(files_csvs))
 dt = 1e4/60
@@ -114,7 +123,7 @@ full_data = []
 
 def get_plot(i,fname):
     plt.clf()
-    df = get_data(output_dir+"{}".format(fname))
+    df = get_data_all(output_dir,fname)
     print("Plot frame {}".format(i),flush=True)
     ax = fig.add_subplot(111,aspect="equal")
     #df = full_data[i]
@@ -144,7 +153,7 @@ def get_plot(i,fname):
     # plt.savefig("outframes/frame_{:05}.png".format(i))
     # plt.clf()
 def plot_pb(i,fname):
-    with open(output_dir + fname) as f:
+    with open(output_dir + "sim_pb_{}.json".format(fname)) as f:
         d = json.load(f)
         for bc in d:
             # print(bc)
@@ -168,7 +177,7 @@ def replot():
 
 
 
-data_name = "damage"
+data_name = "plastic_strain"
 def on_press(event):
     global current_frame,data_name
     # print('press', event.key)

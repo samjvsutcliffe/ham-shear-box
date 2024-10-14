@@ -15,7 +15,7 @@
 (ql:quickload :cl-mpm/particle)
 (ql:quickload :cl-mpm/mpi)
 (ql:quickload "magicl")
-(asdf:compile-system :cl-mpm/fastmath :force t)
+(asdf:compile-system :cl-mpm/fastmaths :force t)
 (asdf:compile-system :cl-mpm/ext :force t)
 (asdf:compile-system :cl-mpm/forces :force t)
 (asdf:compile-system :cl-mpm/utils :force t)
