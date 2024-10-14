@@ -51,11 +51,9 @@
 
 (defun domain-decompose (sim)
   (let ((rank (cl-mpi:mpi-comm-rank)))
-    (let ((dsize (floor (cl-mpi:mpi-comm-size))) 
-          (dsize-square (floor (sqrt (cl-mpi:mpi-comm-size)))) 
-          
-          )
-      (setf (cl-mpm/mpi::mpm-sim-mpi-domain-count sim) 
+    (let ((dsize (floor (cl-mpi:mpi-comm-size)))
+          (dsize-square (floor (sqrt (cl-mpi:mpi-comm-size)))))
+      (setf (cl-mpm/mpi::mpm-sim-mpi-domain-count sim)
             (list dsize-square dsize-square 1)
             ;(list dsize 1 1)
             ))
@@ -66,7 +64,6 @@
       (when (slot-exists-p mp-0 'cl-mpm/particle::local-length)
         (let ((dhalo-size (* 1 (cl-mpm/particle::mp-local-length mp-0))))
 	        (setf (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size *sim*) dhalo-size)) ) )
-    
     (let ((size 0.06d0))
       (cl-mpm/mpi::domain-decompose
        sim
@@ -121,17 +118,17 @@
                 density
                 ;; 'cl-mpm/particle::particle-chalk-brittle
                 ;; 'cl-mpm/particle::particle-vm
-			   'cl-mpm/particle::particle-mc
-			   :E 1d9
-			   :nu 0.24d0
-			   :psi 0d0
-			   ;:phi (* 42d0 (/ pi 180))
-			   ;:c 131d3
-			   :phi (* 30d0 (/ pi 180))
-			   :c 0d0
-			   :phi-r (* 30d0 (/ pi 180))
-			   :c-r 0d0
-			   :softening 0d0
+			          'cl-mpm/particle::particle-mc
+			          :E 1d9
+			          :nu 0.24d0
+			          :psi 0d0
+			          :phi (* 30d0 (/ pi 180))
+			          :c 0d0
+
+			          :phi-r (* 30d0 (/ pi 180))
+			          :c-r 0d0
+			          :softening 0d0
+                :enable-plasticity t
 
 
                 ;'cl-mpm/particle::particle-chalk-delayed
@@ -198,8 +195,7 @@
            :local-length 0d0
            :index 1
            :gravity (- gravity)
-           )))
-        )
+           ))))
 
       ;(defparameter *pressure-bc*
       ;  (cl-mpm/buoyancy::make-bc-pressure
@@ -248,7 +244,6 @@
 					 '(nil 0 nil)
 					 '(nil nil 0)
 					 '(nil nil 0)))
-      
       sim)))
 
 (defun setup (&key (refine 1d0) (mps 4) (friction 0.0d0) (surcharge-load 72.5d3))
@@ -264,7 +259,7 @@
          )
     (setf *box-size* box-size)
     (defparameter *sim* (setup-test-column
-                         (list domain-size (+ (* 1.5 box-size) box-offset))
+                         (list domain-size (+ (* 2 box-size) box-offset))
                          offset
                          (list box-size box-size)
                          (/ 1d0 mesh-size)
@@ -275,54 +270,12 @@
                       :corner-size (* mesh-size 0.25d0))
     (domain-decompose *sim*)
     (defparameter *true-load-bc* *shear-box-left-dynamic*)
-    ;; (setf (cl-mpm::sim-bcs-force-list *sim*)
-    ;;       (list
-    ;;        (cl-mpm/bc:make-bcs-from-list
-    ;;         (list
-    ;;          (cl-mpm/bc::make-bc-closure
-    ;;           nil
-    ;;           (lambda ()
-    ;;             (apply-penalty-box box-size (* 2d0 box-size) sunk-size friction)))))))
     (when (= rank 0)
       (format t "MPs: ~D~%" (length (cl-mpm:sim-mps *sim*)))
       (format t "Mesh-size: ~E~%" (cl-mpm/mesh::mesh-resolution (cl-mpm:sim-mesh *sim*))))
     (defparameter *run-sim* t)
     (defparameter *t* 0)
     (defparameter *sim-step* 0)))
-
-;;Ad-hoc uncoupled strain-softening plasticity
-;(defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-mc) dt) 
-;  (with-accessors ((ps cl-mpm/particle::mp-strain-plastic-vm)
-;                   (c cl-mpm/particle::mp-c)
-;                   (phi cl-mpm/particle::mp-phi)
-;                   )
-;      mp
-;      ;(setf phi (* 30d0 (/ pi 180))
-;      ;      c 0d0)
-;    (let ((phi_0 (* 42d0 (/ pi 180)))
-;          (phi_1 (* 30d0 (/ pi 180)))
-;          (c_0 131d3)
-;          (soft 000d0))
-;      (setf
-;       c (* c_0 (exp (- (* soft ps))))
-;       phi (+ phi_1 (* (- phi_0 phi_1) (exp (- (* soft ps)))))))))
-
-;(defmethod cl-mpm::post-stress-step (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
-;  ;;Do sweet nothing 
-;  )
-
-;(defmethod cl-mpm::update-node-forces ((sim cl-mpm::mpm-sim))
-;  (with-accessors ((damping cl-mpm::sim-damping-factor)
-;                   (mass-scale cl-mpm::sim-mass-scale)
-;                   (mesh cl-mpm::sim-mesh)
-;                   (dt cl-mpm::sim-dt))
-;      sim
-;    (cl-mpm::iterate-over-nodes
-;     mesh
-;     (lambda (node)
-;       (cl-mpm::calculate-forces node damping dt mass-scale)
-;       ;(cl-mpm::calculate-forces-cundall-conservative node damping dt mass-scale)
-;       ))))
 
 (defmacro rank-0-time (rank &rest body)
   `(if (= ,rank 0)
@@ -331,6 +284,11 @@
           ,@body))
       (progn
         ,@body)))
+
+(defun get-load ()
+  (cl-mpm/mpi:mpi-sum
+   (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)))
+
 
 ;(defun get-load ()
 ;    ;(cl-mpm/penalty::bc-penalty-load *true-load-bc*)
@@ -363,7 +321,8 @@
            (dt (cl-mpm:sim-dt *sim*))
            (substeps (floor target-time dt))
            (dt-scale 0.5d0)
-           (enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
+           ;(enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
+           (enable-plasticity t)
            (enable-damage nil)
            (disp-inc (/ displacment load-steps)))
 
@@ -371,7 +330,7 @@
         (format t "Plasticity: ~A~%Damage: ~A~%" enable-plasticity enable-damage))
 
       (setf (cl-mpm:sim-damping-factor *sim*)
-            (* 0.05d0 
+            (* 0.05d0
                (sqrt (cl-mpm:sim-mass-scale *sim*))
                (cl-mpm/setup::estimate-critical-damping *sim*))
             (cl-mpm::sim-enable-damage *sim*) nil)
@@ -453,7 +412,7 @@
                          (time
                           (dotimes (i substeps)
                             (cl-mpm::update-sim *sim*)
-                            (incf load-av (/ (cl-mpm/mpi:mpi-sum (get-load)) substeps))
+                            (incf load-av (/ (get-load) substeps))
                             (incf disp-av (/ *displacement-increment* substeps))
                             (incf *displacement-increment* (/ disp-inc substeps))
                             (incf *t* (cl-mpm::sim-dt *sim*))))
@@ -563,7 +522,7 @@
     (format t "Load: ~A~%" load)
     (format t "Damage: ~A~%" damage)
     (ensure-directories-exist (merge-pathnames output-dir))
-    (setup :refine refine :mps 4 :surcharge-load load)
+    (setup :refine refine :mps 2 :surcharge-load load)
     ;; (let ((*output-directory* output-dir)
     ;;       (*sim-step* 0)
     ;;       (rank (cl-mpi:mpi-comm-rank)))
