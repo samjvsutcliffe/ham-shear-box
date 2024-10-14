@@ -66,11 +66,12 @@ height = width / 1.618
 
 output_regex = re.compile("output-\d+")
 output_list = list(filter(output_regex.match,os.listdir()))
+#output_list.sort(key=lambda x: float(x.split("-")[1]))
 print(output_list)
 output_dir = "./{}/".format(output_list[int(input())])
 
 # output_dir = "./ham-shear-box/output-8-1.0e+5/"
-xlim = [0.06,0.12+0.08]
+xlim = [0.03,0.12+0.08]
 ylim = [0,0.10]
 #with open(output_dir+"settings.json") as f:
 #    json_settings = json.load(f)
@@ -89,10 +90,21 @@ plt.close("all")
 files = os.listdir(output_dir)
 finalcsv = re.compile("sim_\d+.vtk")
 files_csvs = list(filter(finalcsv.match,files))
+
+finalpbs = re.compile("sim_pb_\d+.json")
+files_pbs = list(filter(finalpbs.match,files))
+
 framenumber_regex = re.compile("\d+")
 files_csvs = list(map(lambda x: framenumber_regex.findall(x)[0],files_csvs))
-files_csvs.sort(key=int)
+files_csvs.sort(key=float)
 files_csvs = list(map(lambda x: "sim_{}.vtk".format(x), files_csvs))
+
+
+print(files_pbs)
+files_pbs = list(map(lambda x: framenumber_regex.findall(x)[0],files_pbs))
+files_pbs.sort(key=float)
+files_pbs = list(map(lambda x: "sim_pb_{}.json".format(x), files_pbs))
+
 print("files: {}".format(files_csvs))
 dt = 1e4/60
 time = []
@@ -124,19 +136,34 @@ def get_plot(i,fname):
     p.set_array(df["damage"])
     #p.set_clim([0,1.0])
     ax.add_collection(p)
-    fig.colorbar(p,location="bottom",label="damage")
+    fig.colorbar(p,location="bottom",label=data_name)
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     plt.title("Frame {}".format(i))
     # plt.savefig("outframes/frame_{:05}.png".format(i))
     # plt.clf()
+def plot_pb(i,fname):
+    with open(output_dir + fname) as f:
+        d = json.load(f)
+        for bc in d:
+            # print(bc)
+            p = np.array(bc["POSITION"][:2])
+            normal = np.array(bc["NORMAL"][:2])
+            radius = bc["RADIUS"]
+            normal[0],normal[1] = -normal[1],normal[0]
+            x0 = p - (normal * radius)
+            x1 = p + (normal * radius)
+            plt.plot([x0[0],x1[0]],[x0[1],x1[1]],c="black")
+
+
 
 
 current_frame = 0
 max_frame = len(files_csvs)-1
 def replot():
     get_plot(current_frame,files_csvs[current_frame])
+    plot_pb(current_frame,files_pbs[current_frame])
     fig.canvas.draw()
 
 
@@ -153,6 +180,15 @@ def on_press(event):
     if event.key == 'd':
         data_name = "damage"
         replot()
+    if event.key == 'x':
+        data_name = "disp_x"
+        replot()
+    if event.key == 'c':
+        data_name = "disp_y"
+        replot()
+    if event.key == 'i':
+        data_name = "sig_xy"
+        replot()
     if event.key == 'right':
         current_frame = min(current_frame + 1,max_frame)
         replot()
@@ -165,7 +201,6 @@ def on_press(event):
     if event.key == 'down':
         current_frame = max(current_frame - 10,0)
         replot()
-    
 
 
 print("Plotting {}, {}",current_frame,files_csvs[current_frame])
