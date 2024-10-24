@@ -21,7 +21,7 @@ for f in folders:
     if u not in unique_ids:
         unique_ids.append(u)
 
-#unique_ids.sort(key=float)
+unique_ids.sort(key=lambda x: x.split("_")[-1])
 print(unique_ids)
 # unique_ids = ["4"]
 
@@ -86,7 +86,10 @@ for colour,unique_id in zip(colours,unique_ids):
             mpm["load"] = mpm["load"] - mpm["load"].values[0]
             width = 0.06
             p = mpm["load"].max()/width
-            r = mpm["load"].values[-1]/width
+            # r = mpm["load"].values[-1]/width
+            residual_window = 0.25
+            residual_back = round(len(mpm["load"].values) * (1 - residual_window))
+            r = mpm["load"].values[residual_back:].mean()/width
             surcharge.append(load)
             peak.append(p)
             residual.append(r)
@@ -105,15 +108,15 @@ for colour,unique_id in zip(colours,unique_ids):
         plt.axline((0,b),slope=m,c=p[0].get_color())
         m,b = np.polyfit(surcharge, residual, 1)
         plt.scatter(surcharge,residual,label="Residual - {} - {:.2f}, {:.2f}kN".format(unique_id,np.arctan(m)*180/np.pi,b*1e-3),color=colour,marker="x")
-        r = plt.plot(surcharge,residual,color=colour)
-        plt.axline((0,b),slope=m,c=r[0].get_color())
+        r = plt.plot(surcharge,residual,color=colour,ls="--")
+        plt.axline((0,b),slope=m,c=r[0].get_color(),ls="--")
 
-        plt.axline((0,0),slope=np.tan(30 * np.pi/180),ls="--")
-        plt.axline((0,131e3),slope=np.tan(42 * np.pi/180),ls="--")
+        plt.axline((0,0),slope=np.tan(30 * np.pi/180),ls="-.")
+        plt.axline((0,131e3),slope=np.tan(42 * np.pi/180),ls="-.")
         plt.xlim([0,500e3])
         plt.ylim([0,500e3])
-        plt.xlabel("Normal load")
-        plt.xlabel("Shear stress")
+        plt.xlabel("Normal load (Pa)")
+        plt.ylabel("Shear stress (Pa)")
         plt.legend()
         plt.savefig("frictional.pdf")
 plt.show()
