@@ -29,11 +29,12 @@
                      ) mp
       (declare (double-float pressure damage))
       (progn
-        (setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
-        ;(setf damage-increment
-        ;      (max 0d0
-        ;           (cl-mpm/damage::drucker-prager-criterion
-        ;            (magicl:scale stress (/ 1d0 (magicl:det def))) (* angle (/ pi 180d0)))))
+        ;(setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
+        (setf damage-increment
+              (max 0d0
+                   (cl-mpm/damage::criterion-dp-coheasion
+                    (cl-mpm/fastmaths:fast-scale-voigt stress (/ 1d0 (magicl:det def)))
+                    (* angle (/ pi 180d0)))))
 		;(setf damage-increment
         ;      (max 0d0
         ;           (cl-mpm/damage::criterion-dp
@@ -244,7 +245,7 @@
            (target-time (/ total-time load-steps))
            (dt (cl-mpm:sim-dt *sim*))
            (substeps (floor target-time dt))
-           (dt-scale 0.5d0)
+           ;(dt-scale 0.5d0)
            ;(enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
            (enable-plasticity nil)
            (enable-damage t)
@@ -467,6 +468,7 @@
     ;;   ;; (cl-mpm/output::save-vtk-nodes (merge-pathnames *output-directory* (format nil "sim_nodes_~2,'0d_~5,'0d.vtk" rank *sim-step*)) *sim*)
     ;;   )
     (run :output-directory output-dir 
+         :dt-scale 0.10d0
          :refine refine
          :scale 1d0
          :sample-scale 1d0)
