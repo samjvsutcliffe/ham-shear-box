@@ -48,19 +48,19 @@ for colour,unique_id in zip(colours,unique_ids):
 
     plt.figure()
     plt.title(unique_id)
-    #for i in folders:
-    #    print("loading folder: ",i)
-    #    mpm = pd.read_csv("./{}/disp.csv".format(i))
-    #    if len(mpm["load"]) > 0:
-    #        mpm["load"] = mpm["load"] - mpm["load"].values[0]
-    #        l=plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load"].values,label=i,marker=".")
-    #        maxload = 200
-    #        maxp=mpm["plastic"].max()
-    #        maxd=mpm["damage"].max()
-    #        maxp=0.1e0
-    #        maxd=1e3
-    #        plt.plot(1e3*mpm["disp"].values,maxload*mpm["plastic"].values/maxp,label="",marker="x",ls="--",c=l[0].get_color())
-    #        plt.plot(1e3*mpm["disp"].values,maxload*mpm["damage"].values/maxd,label="",marker="o",ls="--",c=l[0].get_color())
+    for i in folders:
+        print("loading folder: ",i)
+        mpm = pd.read_csv("./{}/disp.csv".format(i))
+        if len(mpm["load"]) > 0:
+            mpm["load"] = mpm["load"] - mpm["load"].values[0]
+            l=plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load"].values,label=i,marker=".")
+            maxload = 200
+            maxp=mpm["plastic"].max()
+            maxd=mpm["damage"].max()
+            maxp=0.1e0
+            maxd=1e3
+            plt.plot(1e3*mpm["disp"].values,maxload*mpm["plastic"].values/maxp,label="",marker="x",ls="--",c=l[0].get_color())
+            plt.plot(1e3*mpm["disp"].values,maxload*mpm["damage"].values/maxd,label="",marker="o",ls="--",c=l[0].get_color())
     plt.xlabel("Displacement (mm)")
     plt.ylabel("Load (N)")
     plt.legend()
