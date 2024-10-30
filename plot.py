@@ -58,9 +58,11 @@ for colour,unique_id in zip(colours,unique_ids):
             maxp=mpm["plastic"].max()
             maxd=mpm["damage"].max()
             maxp=0.1e0
-            maxd=1e3
-            plt.plot(1e3*mpm["disp"].values,maxload*mpm["plastic"].values/maxp,label="",marker="x",ls="--",c=l[0].get_color())
-            plt.plot(1e3*mpm["disp"].values,maxload*mpm["damage"].values/maxd,label="",marker="o",ls="--",c=l[0].get_color())
+            maxd=1e1
+            maxe=1e0
+            plt.plot(1e3*mpm["disp"].values,mpm["plastic"].values/maxp,label="",marker="x",ls="--",c=l[0].get_color())
+            plt.plot(1e3*mpm["disp"].values,mpm["damage"].values/maxd,label="",marker="o",ls="--",c=l[0].get_color())
+            plt.plot(1e3*mpm["disp"].values,mpm["energy"].values/maxe,label="",marker="*",ls="--",c=l[0].get_color())
     plt.xlabel("Displacement (mm)")
     plt.ylabel("Load (N)")
     plt.legend()
@@ -85,6 +87,8 @@ for colour,unique_id in zip(colours,unique_ids):
         if len(mpm["load"]) > 0:
             mpm["load"] = mpm["load"] - mpm["load"].values[0]
             width = 0.06
+            residual_window = 0.5
+            residual_end = round(len(mpm["load"]) * (1 - residual_window))
             p = mpm["load"].max()/width
             residual_window = 0.5
             residual_back = round(len(mpm["load"].values) * (1 - residual_window))
@@ -106,9 +110,9 @@ for colour,unique_id in zip(colours,unique_ids):
         p = plt.plot(surcharge,peak,color=colour)
         plt.axline((0,b),slope=m,c=p[0].get_color())
         m,b = np.polyfit(surcharge, residual, 1)
-        plt.scatter(surcharge,residual,label="Residual - {} - {:.2f}, {:.2f}kN".format(unique_id,np.arctan(m)*180/np.pi,b*1e-3),color=colour,marker="x")
-        r = plt.plot(surcharge,residual,color=colour)
-        plt.axline((0,b),slope=m,c=r[0].get_color())
+        # plt.scatter(surcharge,residual,label="Residual - {} - {:.2f}, {:.2f}kN".format(unique_id,np.arctan(m)*180/np.pi,b*1e-3),color=colour,marker="x")
+        # r = plt.plot(surcharge,residual,color=colour)
+        # plt.axline((0,b),slope=m,c=r[0].get_color())
 
         plt.axline((0,0),slope=np.tan(30 * np.pi/180),ls="--")
         plt.axline((0,131e3),slope=np.tan(42 * np.pi/180),ls="--")
