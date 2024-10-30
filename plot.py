@@ -86,7 +86,9 @@ for colour,unique_id in zip(colours,unique_ids):
             mpm["load"] = mpm["load"] - mpm["load"].values[0]
             width = 0.06
             p = mpm["load"].max()/width
-            r = mpm["load"].values[-1]/width
+            residual_window = 0.5
+            residual_back = round(len(mpm["load"].values) * (1 - residual_window))
+            r = mpm["load"].values[residual_back:].mean()/width
             surcharge.append(load)
             peak.append(p)
             residual.append(r)
@@ -113,7 +115,7 @@ for colour,unique_id in zip(colours,unique_ids):
         plt.xlim([0,500e3])
         plt.ylim([0,500e3])
         plt.xlabel("Normal load")
-        plt.xlabel("Shear stress")
+        plt.ylabel("Shear stress")
         plt.legend()
         plt.savefig("frictional.pdf")
 plt.show()
