@@ -30,6 +30,18 @@ colours = prop_cycle.by_key()['color']
 plt.figure(1)
 plt.figure(2)
 
+load_zeroing = True
+load_clipping = False
+
+def get_load(filename):
+    mpm = pd.read_csv(filename)
+    if load_clipping:
+        mpm = mpm[mpm["disp"] >= 0.01e-3]
+    if len(mpm["load"]) > 0:
+        if load_zeroing:
+            mpm["load"] = mpm["load"] - mpm["load"].values[0]
+    return mpm
+
 for colour,unique_id in zip(colours,unique_ids):
     plt.figure(1)
     unreg = re.compile(r'^output-{}-.*'.format(unique_id))
@@ -37,9 +49,10 @@ for colour,unique_id in zip(colours,unique_ids):
     folders.sort(key=lambda x: float(x.split("-")[2]))
     for i in folders:
         print("loading folder: ",i)
-        mpm = pd.read_csv("./{}/disp.csv".format(i))
+        mpm = get_load("./{}/disp.csv".format(i))
         if len(mpm["load"]) > 0:
-            mpm["load"] = mpm["load"] - mpm["load"].values[0]
+            #if load_zeroing:
+            #    mpm["load"] = mpm["load"] - mpm["load"].values[0]
             l=plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load"].values,label=i,marker=".")
             maxload = (1e-3/0.06)*mpm["load"].max()
     plt.xlabel("Displacement (mm)")
@@ -50,10 +63,13 @@ for colour,unique_id in zip(colours,unique_ids):
     plt.title(unique_id)
     for i in folders:
         print("loading folder: ",i)
-        mpm = pd.read_csv("./{}/disp.csv".format(i))
+        mpm = get_load("./{}/disp.csv".format(i))
         if len(mpm["load"]) > 0:
-            mpm["load"] = mpm["load"] - mpm["load"].values[0]
+            #if load_zeroing:
+            #    mpm["load"] = mpm["load"] - mpm["load"].values[0]
             l=plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load"].values,label=i,marker=".")
+            # plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["l-left"].values,label=i,marker=".")
+            # plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["l-right"].values,label=i,marker=".")
             maxload = 200
             maxp=mpm["plastic"].max()
             maxd=mpm["damage"].max()
@@ -74,16 +90,18 @@ for colour,unique_id in zip(colours,unique_ids):
     # plt.ylabel("Load (N)")
     # plt.legend()
     # plt.savefig("load-disp-{}.pdf".format(unique_id))
-    
+
     surcharge = []
     peak = []
     residual = []
     plt.figure(2)
     for f in folders:
         refine,load = extract_vals(f)
-        mpm = pd.read_csv("./{}/disp.csv".format(f))
+        mpm = get_load("./{}/disp.csv".format(f))
+        # mpm["load"] = mpm["l-left"]
         if len(mpm["load"]) > 0:
-            mpm["load"] = mpm["load"] - mpm["load"].values[0]
+            #if load_zeroing:
+            #    mpm["load"] = mpm["load"] - mpm["load"].values[0]
             width = 0.06
             p = mpm["load"].max()/width
             # r = mpm["load"].values[-1]/width
