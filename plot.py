@@ -30,7 +30,8 @@ colours = prop_cycle.by_key()['color']
 plt.figure(1)
 plt.figure(2)
 
-load_zeroing = True
+#load_zeroing = True
+load_zeroing = False
 load_clipping = False
 
 def get_load(filename):
@@ -104,10 +105,10 @@ for colour,unique_id in zip(colours,unique_ids):
             #    mpm["load"] = mpm["load"] - mpm["load"].values[0]
             width = 0.06
             p = mpm["load"].max()/width
-            # r = mpm["load"].values[-1]/width
-            residual_window = 0.25
-            residual_back = round(len(mpm["load"].values) * (1 - residual_window))
-            r = mpm["load"].values[residual_back:].mean()/width
+            r = mpm["load"].values[-1]/width
+            #residual_window = 0.25
+            #residual_back = round(len(mpm["load"].values) * (1 - residual_window))
+            #r = mpm["load"].values[residual_back:].mean()/width
             surcharge.append(load)
             peak.append(p)
             residual.append(r)

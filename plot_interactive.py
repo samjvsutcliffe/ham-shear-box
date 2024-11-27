@@ -72,7 +72,7 @@ width = 3.487
 height = width / 1.618
 
 
-output_regex = re.compile("output-\d+")
+output_regex = re.compile("output-.*")
 output_list = list(filter(output_regex.match,os.listdir()))
 #output_list.sort(key=lambda x: float(x.split("-")[1]))
 print(output_list)
