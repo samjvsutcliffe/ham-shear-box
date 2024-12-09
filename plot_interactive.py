@@ -6,7 +6,6 @@ import matplotlib.animation as animation
 from matplotlib.patches import Rectangle
 from matplotlib.collections import PatchCollection
 from matplotlib import cm
-import matplotlib.ticker as plticker
 import re
 import os
 import json
@@ -71,15 +70,18 @@ plt.rc('axes', labelsize=8)
 width = 3.487
 height = width / 1.618
 
-
-output_regex = re.compile("output-.*")
-output_list = list(filter(output_regex.match,os.listdir()))
+#"/nobackup/rmvn14/paper-1/damage-mc-k/"
+top_dir = "./"
+output_regex = re.compile("output-*")
+output_list = list(filter(output_regex.match,os.listdir(top_dir)))
+output_list.sort()
 #output_list.sort(key=lambda x: float(x.split("-")[1]))
-print(output_list)
-output_dir = "./{}/".format(output_list[int(input())])
+for i,out in enumerate(output_list):
+    print("{}: {}".format(i,out))
+output_dir = "{}./{}/".format(top_dir,output_list[int(input())])
 
 # output_dir = "./ham-shear-box/output-8-1.0e+5/"
-xlim = [0.03,0.06*3]
+xlim = [0.03,0.12+0.08]
 ylim = [0,0.10]
 #with open(output_dir+"settings.json") as f:
 #    json_settings = json.load(f)
@@ -148,20 +150,8 @@ def get_plot(i,fname):
     ax.add_collection(p)
     fig.colorbar(p,location="bottom",label=data_name)
 
-    with open(output_dir+"settings.json") as f:
-        json_settings = json.load(f)
-        h = json_settings["RESOLUTION"]
-
-    # Add the grid
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-
-    #loc = plticker.MultipleLocator(base=h)
-    loc = plticker.FixedLocator(np.arange(0,0.06*3,h))
-    ax.xaxis.set_major_locator(loc)
-    ax.yaxis.set_major_locator(loc)
-    plt.grid()
-    #ax.grid(which='major',linestyle='--')
     plt.title("Frame {}".format(i))
     # plt.savefig("outframes/frame_{:05}.png".format(i))
     # plt.clf()
@@ -191,29 +181,30 @@ def replot():
 
 
 data_name = "plastic_strain"
+data_map = {
+        "p":"plastic_strain",
+        "d":"damage",
+        "y":"damage-ybar-scaled",
+        "u":"sig_xx",
+        "o":"mpi-index",
+        "b":"fric-normal",
+        "x":"disp_x",
+        "c":"disp_y"
+        }
+print(data_map)
 def on_press(event):
     global current_frame,data_name
     # print('press', event.key)
     sys.stdout.flush()
     # print(event.key)
-    if event.key == 'p':
-        data_name = "plastic_strain"
+    if event.key in data_map:
+        data_name = data_map[event.key]
         replot()
-    if event.key == 'd':
-        data_name = "damage"
+    if event.key == 'w':
+        current_frame = 0
         replot()
-    if event.key == 'y':
-        data_name = "damage-ybar"
-        replot()
-    if event.key == 'x':
-        data_name = "disp_x"
-        replot()
-    if event.key == 'c':
-        data_name = "disp_y"
-        replot()
-    if event.key == 'i':
-        #data_name = "sig_xy"
-        data_name = "index"
+    if event.key == 'e':
+        current_frame = max_frame
         replot()
     if event.key == 'right':
         current_frame = min(current_frame + 1,max_frame)
