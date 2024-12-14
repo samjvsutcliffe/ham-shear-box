@@ -25,24 +25,26 @@ def extract_vals(f):
     #refine = float(refine)
     return refine,float(load)
 
+top_dir = "./plastic-damage-residual/"
 regex = re.compile(r'^output-.*')
 folders = list(filter(regex.search,os.listdir("./")))
-folders = [
-    "output-4.0_4_1.0_100.0-100000.0",
-    "output-4.0_4_1.0_100.0-200000.0",
-    "output-4.0_4_1.0_100.0-300000.0"
-    # "output-SE_4.0_2_0.5_1.0_10000.0-50000.0" ,
-    # "output-SE_4.0_2_0.5_1.0_10000.0-100000.0",
-    # "output-SE_4.0_2_0.5_1.0_10000.0-150000.0",
-    # "output-SE_4.0_2_0.5_1.0_10000.0-200000.0",
-    # "output-SE_4.0_2_0.5_1.0_10000.0-250000.0",
-    # "output-SE_4.0_2_0.5_1.0_10000.0-300000.0"
-]
-names = [
-    "Load: 100kPa",
-    "Load: 200kPa",
-    "Load: 300kPa"
-]
+#folders = [
+#    "output-4.0_4_1.0_100.0-100000.0",
+#    "output-4.0_4_1.0_100.0-200000.0",
+#    "output-4.0_4_1.0_100.0-300000.0"
+#    # "output-SE_4.0_2_0.5_1.0_10000.0-50000.0" ,
+#    # "output-SE_4.0_2_0.5_1.0_10000.0-100000.0",
+#    # "output-SE_4.0_2_0.5_1.0_10000.0-150000.0",
+#    # "output-SE_4.0_2_0.5_1.0_10000.0-200000.0",
+#    # "output-SE_4.0_2_0.5_1.0_10000.0-250000.0",
+#    # "output-SE_4.0_2_0.5_1.0_10000.0-300000.0"
+#]
+#names = [
+#    "Load: 100kPa",
+#    "Load: 200kPa",
+#    "Load: 300kPa"
+#]
+names = folders
 print(folders)
 
 prop_cycle = plt.rcParams['axes.prop_cycle']
@@ -50,12 +52,12 @@ colours = prop_cycle.by_key()['color']
 plt.figure(1)
 plt.figure(2)
 
-#load_zeroing = True
-load_zeroing = False
+load_zeroing = True
+#load_zeroing = False
 load_clipping = False
 
 def get_load(filename):
-    mpm = pd.read_csv(filename)
+    mpm = pd.read_csv(top_dir+filename)
     if load_clipping:
         mpm = mpm[mpm["disp"] >= 0.01e-3]
     if len(mpm["load"]) > 0:
