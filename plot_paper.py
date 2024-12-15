@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import pandas as pd
 import os
 import numpy as np
@@ -25,26 +26,32 @@ def extract_vals(f):
     #refine = float(refine)
     return refine,float(load)
 
-top_dir = "./plastic-damage-residual/"
+top_dir = "./paper-1/damage-se/"
 regex = re.compile(r'^output-.*')
-folders = list(filter(regex.search,os.listdir("./")))
-#folders = [
-#    "output-4.0_4_1.0_100.0-100000.0",
-#    "output-4.0_4_1.0_100.0-200000.0",
-#    "output-4.0_4_1.0_100.0-300000.0"
-#    # "output-SE_4.0_2_0.5_1.0_10000.0-50000.0" ,
-#    # "output-SE_4.0_2_0.5_1.0_10000.0-100000.0",
-#    # "output-SE_4.0_2_0.5_1.0_10000.0-150000.0",
-#    # "output-SE_4.0_2_0.5_1.0_10000.0-200000.0",
-#    # "output-SE_4.0_2_0.5_1.0_10000.0-250000.0",
-#    # "output-SE_4.0_2_0.5_1.0_10000.0-300000.0"
-#]
-#names = [
-#    "Load: 100kPa",
-#    "Load: 200kPa",
-#    "Load: 300kPa"
-#]
+folders = list(filter(regex.search,os.listdir(top_dir)))
 names = folders
+folders = [
+    "output-8.0_2_1.0_1.0_100.0-100000.0",
+    "output-8.0_2_1.0_1.0_100.0-200000.0",
+    "output-8.0_2_1.0_1.0_100.0-300000.0"
+]
+# names = folders
+# folders = [
+#     "output-4.0_4_1.0_100.0-100000.0",
+#     "output-4.0_4_1.0_100.0-200000.0",
+#     "output-4.0_4_1.0_100.0-300000.0"
+#     # "output-SE_4.0_2_0.5_1.0_10000.0-50000.0" ,
+#     # "output-SE_4.0_2_0.5_1.0_10000.0-100000.0",
+#     # "output-SE_4.0_2_0.5_1.0_10000.0-150000.0",
+#     # "output-SE_4.0_2_0.5_1.0_10000.0-200000.0",
+#     # "output-SE_4.0_2_0.5_1.0_10000.0-250000.0",
+#     # "output-SE_4.0_2_0.5_1.0_10000.0-300000.0"
+# ]
+names = [
+    "Load: 100kPa",
+    "Load: 200kPa",
+    "Load: 300kPa"
+]
 print(folders)
 
 prop_cycle = plt.rcParams['axes.prop_cycle']
@@ -152,6 +159,9 @@ if len(peak) > 0:
 
     plt.axline((0,0),slope=np.tan(30 * np.pi/180),ls="-")
     plt.axline((0,131e3),slope=np.tan(42 * np.pi/180),ls="-")
+    ticformat = ticker.FuncFormatter(lambda x,pos: "{0:g}".format(x*1e-3))
+    plt.gca().xaxis.set_major_formatter(ticformat)
+    plt.gca().yaxis.set_major_formatter(ticformat)
     plt.xlim([0,500e3])
     plt.ylim([0,500e3])
     plt.xlabel("Normal load (Pa)")

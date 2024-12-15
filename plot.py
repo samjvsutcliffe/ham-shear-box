@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import pandas as pd
 import os
 import numpy as np
@@ -11,8 +12,9 @@ def extract_vals(f):
     #refine = float(refine)
     return refine,float(load)
 
+top_dir = "./paper-1/damage-mc/"
 regex = re.compile(r'^output-.*')
-folders = list(filter(regex.search,os.listdir("./")))
+folders = list(filter(regex.search,os.listdir(top_dir)))
 
 print(folders)
 unique_ids = []
@@ -30,23 +32,33 @@ colours = prop_cycle.by_key()['color']
 plt.figure(1)
 plt.figure(2)
 
-#load_zeroing = True
-load_zeroing = False
+load_zeroing = True
+# load_zeroing = False
+# load_combined = True
+load_combined = False
 load_clipping = False
 
 def get_load(filename):
-    mpm = pd.read_csv(filename)
+    mpm = pd.read_csv(top_dir+filename)
     if load_clipping:
         mpm = mpm[mpm["disp"] >= 0.01e-3]
     if len(mpm["load"]) > 0:
+        mpm["load-diff"] = mpm["l-left"] + mpm["l-right"]
+        if load_combined:
+            mpm["load"] = mpm["load-diff"]
         if load_zeroing:
             mpm["load"] = mpm["load"] - mpm["load"].values[0]
+        mpm["stress"] = mpm["load"] / (0.06 - mpm["disp"])
     return mpm
 
+E = 1e9
+nu = 0.24
+G = (E / ( 2 * (1 - nu)))
+print("G actual: {}GPa".format(1e-9*G))
 for colour,unique_id in zip(colours,unique_ids):
     plt.figure(1)
     unreg = re.compile(r'^output-{}-.*'.format(unique_id))
-    folders = list(filter(unreg.search,os.listdir("./")))
+    folders = list(filter(unreg.search,os.listdir(top_dir)))
     folders.sort(key=lambda x: float(x.split("-")[2]))
     for i in folders:
         print("loading folder: ",i)
@@ -55,9 +67,11 @@ for colour,unique_id in zip(colours,unique_ids):
             #if load_zeroing:
             #    mpm["load"] = mpm["load"] - mpm["load"].values[0]
             l=plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load"].values,label=i,marker=".")
+            plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load-diff"].values,label=i,marker="x",c=l[0].get_color())
+            print("Shear modulus {}GPa".format(1e-9*mpm["load"].max()/mpm["disp"].values[mpm["load"].argmax()]))
             maxload = (1e-3/0.06)*mpm["load"].max()
     plt.xlabel("Displacement (mm)")
-    plt.ylabel("Load (N)")
+    plt.ylabel("Load (kN)")
     plt.legend()
 
     plt.figure()
@@ -132,6 +146,9 @@ for colour,unique_id in zip(colours,unique_ids):
 
         plt.axline((0,0),slope=np.tan(30 * np.pi/180),ls="-.")
         plt.axline((0,131e3),slope=np.tan(42 * np.pi/180),ls="-.")
+        ticformat = ticker.FuncFormatter(lambda x,pos: "{0:g}".format(x*1e-3))
+        plt.gca().xaxis.set_major_formatter(ticformat)
+        plt.gca().yaxis.set_major_formatter(ticformat)
         plt.xlim([0,500e3])
         plt.ylim([0,500e3])
         plt.xlabel("Normal load (Pa)")
