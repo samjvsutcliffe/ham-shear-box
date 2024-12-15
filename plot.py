@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import pandas as pd
 import os
 import numpy as np
@@ -11,8 +12,9 @@ def extract_vals(f):
     #refine = float(refine)
     return refine,float(load)
 
+top_dir = "./paper-1/damage-mc/"
 regex = re.compile(r'^output-.*')
-folders = list(filter(regex.search,os.listdir("./")))
+folders = list(filter(regex.search,os.listdir(top_dir)))
 
 print(folders)
 unique_ids = []
@@ -37,7 +39,7 @@ load_combined = False
 load_clipping = False
 
 def get_load(filename):
-    mpm = pd.read_csv(filename)
+    mpm = pd.read_csv(top_dir+filename)
     if load_clipping:
         mpm = mpm[mpm["disp"] >= 0.01e-3]
     if len(mpm["load"]) > 0:
@@ -56,7 +58,7 @@ print("G actual: {}GPa".format(1e-9*G))
 for colour,unique_id in zip(colours,unique_ids):
     plt.figure(1)
     unreg = re.compile(r'^output-{}-.*'.format(unique_id))
-    folders = list(filter(unreg.search,os.listdir("./")))
+    folders = list(filter(unreg.search,os.listdir(top_dir)))
     folders.sort(key=lambda x: float(x.split("-")[2]))
     for i in folders:
         print("loading folder: ",i)
@@ -69,7 +71,7 @@ for colour,unique_id in zip(colours,unique_ids):
             print("Shear modulus {}GPa".format(1e-9*mpm["load"].max()/mpm["disp"].values[mpm["load"].argmax()]))
             maxload = (1e-3/0.06)*mpm["load"].max()
     plt.xlabel("Displacement (mm)")
-    plt.ylabel("Load (N)")
+    plt.ylabel("Load (kN)")
     plt.legend()
 
     plt.figure()
@@ -144,6 +146,9 @@ for colour,unique_id in zip(colours,unique_ids):
 
         plt.axline((0,0),slope=np.tan(30 * np.pi/180),ls="-.")
         plt.axline((0,131e3),slope=np.tan(42 * np.pi/180),ls="-.")
+        ticformat = ticker.FuncFormatter(lambda x,pos: "{0:g}".format(x*1e-3))
+        plt.gca().xaxis.set_major_formatter(ticformat)
+        plt.gca().yaxis.set_major_formatter(ticformat)
         plt.xlim([0,500e3])
         plt.ylim([0,500e3])
         plt.xlabel("Normal load (Pa)")
