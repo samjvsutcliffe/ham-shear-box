@@ -10,6 +10,7 @@ export MV2_ENABLE_AFFINITY=0
 for ref in 8
 do
     for l in 100000 200000 300000
+    #for l in 200000
     #for l in 25000 50000 75000 100000 125000 150000 175000 200000 225000 250000 275000 300000
     do
         export REFINE=$ref

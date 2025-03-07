@@ -112,9 +112,7 @@
   :nu 0.24d0
   :kt-res-ratio 1d0
   :kc-res-ratio 0d0
-  ;:g-res-ratio 0.359d0
   :g-res-ratio 1d0
-  ;:g-res-ratio 1d0
   :peerlings-damage t
   :friction-angle 42d0
   :initiation-stress init-stress;18d3
@@ -156,13 +154,11 @@
     (declare (double-float h density))
     (progn
       (let* ((angle-rad (* angle (/ pi 180)))
-             ;(init-stress 131d3)
              (angle 42d0)
              (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 131d3 (* angle (/ pi 180))))
              ;(gf 5d0)
              (gf 48d0)
-             ;(length-scale (* 1 h))
-             ;(length-scale (* 1.5 h))
+             (gf 4.8d0)
              (length-scale 7.5d-3)
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              )
@@ -224,7 +220,6 @@
 (declaim (notinline get-piston-load))
 (defun get-piston-load ()
   (cl-mpm/mpi:mpi-sum (cl-mpm/penalty::bc-penalty-load *piston-penalty*)))
-
 
 
 (defun setup (&key (refine 1d0) (mps 4) (friction 0.0d0) (surcharge-load 72.5d3)
@@ -293,12 +288,10 @@
 (defun get-load ()
   (let ((normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
     (cl-mpm/mpi:mpi-sum 
-      ;(cl-mpm/penalty::resolve-load-direction *shear-box-struct-left* normal)
       (+ 
       (cl-mpm/penalty::resolve-load-direction *shear-box-struct-left* normal)
       ;(cl-mpm/penalty::resolve-load-direction *shear-box-struct-right* normal)
-      ) 
-      )))
+      ))))
 
 (defun get-load-left ()
   (let ((normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
@@ -369,8 +362,8 @@
       (setf *enable-box-friction* nil)
       (cl-mpm/dynamic-relaxation:converge-quasi-static
        *sim*
-       :energy-crit 1d-1
-       :oobf-crit 1d-1
+       :energy-crit 1d-2
+       :oobf-crit 1d-2
        :dt-scale dt-scale
        :substeps 50
        :conv-steps 5000
@@ -390,9 +383,8 @@
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale *sim*) ms)
         (setf (cl-mpm:sim-damping-factor *sim*)
-              (* 1d-1
-                 ms
-                 ;(sqrt ms)
+              (* 1d-2
+                 (sqrt ms)
                  (cl-mpm/setup::estimate-critical-damping *sim*))))
 
       (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
@@ -440,7 +432,7 @@
                      (progn
                        (when (= rank 0)
                          (format t "Step ~d ~%" steps))
-                       (when (= (mod steps 10) 0)
+                       (when (= (mod steps 1) 0)
                          (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~2,'0d_~5,'0d.vtk" rank *sim-step*)) *sim*)
                         (when (= rank 0)
                           (save-json-penalty-box (merge-pathnames output-directory (format nil "sim_pb_~5,'0d.json" *sim-step*)) *sim*) )
@@ -544,7 +536,7 @@
                      (progn
                        (when (= rank 0)
                          (format t "Step ~d ~%" steps))
-                       (when (= (mod steps 1) 0)
+                       (when (= (mod steps 10) 0)
                          (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~2,'0d_~5,'0d.vtk" rank *sim-step*)) *sim*)
                          (when (= rank 0)
                            (save-vtk-penalty-box (merge-pathnames output-directory (format nil "sim_box_~5,'0d.vtk" *sim-step*)) *sim*))
@@ -577,15 +569,12 @@
   (let* ((refine (if (uiop:getenv "REFINE") (parse-integer (uiop:getenv "REFINE")) 2))
          (load (if (uiop:getenv "LOAD") (parse-float:parse-float (uiop:getenv "LOAD")) 72.5d3))
          (damage (if (uiop:getenv "DAMAGE") (parse-float:parse-float (uiop:getenv "DAMAGE")) 0d0))
-         (mps 3)
-         ;(scale 1d0)
-         ;(sample-scale 2d0)
+         (mps 2)
          (scale 1d0)
-         (sample-scale 1d0)
+         (sample-scale 2d0)
          (epsilon-scale 1d3)
          (piston-scale 1d0)
          (output-dir (format nil "/nobackup/rmvn14/paper-1/damage-mc/output-~F_~D_~f_~f_~F-~f/" refine mps scale piston-scale epsilon-scale load))
-         ;(epsilon-scale (* epsilon-scale (/ (float refine 0d0) 4d0)))
          )
     (setf *damage* damage)
     (format t "Refine: ~A~%" refine)
@@ -602,8 +591,9 @@
       :mp-refine 1
       )
     (run :output-directory output-dir 
-         :displacement 2d-3
-         :dt-scale (/ 0.5d0 (sqrt (* piston-scale 1d-1 epsilon-scale))); 0.100d0
+         :displacement 0.1d-3
+         :dt-scale (/ 1d0 (sqrt (* piston-scale 1d-1 epsilon-scale)))
+         ;:dt-scale (/ 0.5d0 (sqrt (* 1d-1 epsilon-scale)))
          :refine refine
          :time-scale scale
          :sample-scale sample-scale
