@@ -4,17 +4,31 @@ module load mvapich2
 module load aocl
 export MV2_ENABLE_AFFINITY=0
 #sbcl --dynamic-space-size 16000  --disable-debugger --load "build_step.lisp" --quit
-rm -r output-*
+#rm -r output-*
 
 
-for ref in 4
+for ref in 8
 do
-    #for l in 100000 125000 150000 175000 200000 225000 250000 275000 300000
+    #for l in 125000 150000 175000 225000 250000 275000
+    #for l in 25000 50000 75000 100000 125000 150000 175000 200000 225000 250000 275000 300000
+    #for l in 50000 100000 150000 200000 250000 300000
     for l in 100000 200000 300000
     do
         export REFINE=$ref
         export LOAD=$l
-        sbatch batch_shear-box.sh
+        sbatch sb-d-se.sh
+    done
+done
+
+for ref in 8
+do
+    #for l in 50000 100000 125000 150000 175000 200000 225000 250000 275000 300000
+    for l in 125000 150000 175000 225000 250000 275000
+    #for l in 100000 200000 300000
+    do
+        export REFINE=$ref
+        export LOAD=$l
+        #sbatch batch_shear-box_big.sh
     done
 done
 
