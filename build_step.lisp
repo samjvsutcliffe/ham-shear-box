@@ -28,6 +28,7 @@
 (asdf:compile-system :cl-mpm/bc :force t)
 (asdf:compile-system :cl-mpm/output :force t)
 (asdf:compile-system :cl-mpm/mpi :force t)
+(asdf:compile-system :cl-mpm/all :force t)
 
 (ql:quickload "cl-mpm/examples/shear-box")
 (ql:quickload :parse-float)
