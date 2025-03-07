@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Request resources:
-#SBATCH --time=4:00:0  # 6 hours (hours:minutes:seconds)
+#SBATCH --time=5:00:0  # 6 hours (hours:minutes:seconds)
 #SBATCH -p shared
 #SBATCH -n 1                    # number of MPI ranks
 #SBATCH --cpus-per-task=16   # number of MPI ranks per CPU socket
@@ -25,5 +25,5 @@ export MV2_ENABLE_AFFINITY=0
 #export REFINE=6.0
 #export KAPPA=1.0
 #export lc=1.0
-mpirun ./mpi-worker --dynamic-space-size 16000
+mpirun ./mpi-worker --dynamic-space-size 16000 --disable-debugger
 #./mpi-worker --dynamic-space-size 16000 --disable-debugger
