@@ -18,12 +18,13 @@
 
 (defmethod cl-mpm::update-particle (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt)
     (cl-mpm::update-particle-kirchoff mesh mp dt) 
-    (cl-mpm::update-domain-midpoint mesh mp dt)
+    (cl-mpm::update-domain-deformation mesh mp dt)
+    ;(cl-mpm::update-domain-midpoint mesh mp dt)
     ;; (cl-mpm::update-domain-corner mesh mp dt) 
-    (cl-mpm::scale-domain-size mesh mp))
+    (cl-mpm::scale-domain-size mesh mp)
+    )
 
 (defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
-  ;(setf (cl-mpm/particle::mp-damage-compression mp) 0d0)
   (cl-mpm::update-stress-kirchoff mesh mp dt fbar))
 
 (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-delayed) dt)
@@ -399,6 +400,7 @@
         (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) substeps))
 
       (when (= rank 0)
+        (format t "Delay time ~E~%" (* target-time 1d-1))
         (format t "Substeps ~D~%" substeps))
 
 
@@ -432,7 +434,7 @@
                      (progn
                        (when (= rank 0)
                          (format t "Step ~d ~%" steps))
-                       (when (= (mod steps 1) 0)
+                       (when (= (mod steps 10) 0)
                          (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~2,'0d_~5,'0d.vtk" rank *sim-step*)) *sim*)
                         (when (= rank 0)
                           (save-json-penalty-box (merge-pathnames output-directory (format nil "sim_pb_~5,'0d.json" *sim-step*)) *sim*) )
@@ -593,7 +595,6 @@
     (run :output-directory output-dir 
          :displacement 0.1d-3
          :dt-scale (/ 1d0 (sqrt (* piston-scale 1d-1 epsilon-scale)))
-         ;:dt-scale (/ 0.5d0 (sqrt (* 1d-1 epsilon-scale)))
          :refine refine
          :time-scale scale
          :sample-scale sample-scale
