@@ -13,7 +13,8 @@
   (cl-mpm::update-particle-kirchoff mesh mp dt)
   ;(cl-mpm::update-domain-polar-2d mesh mp dt)
   (cl-mpm::update-domain-deformation mesh mp dt)
-  (cl-mpm::scale-domain-size mesh mp))
+  (cl-mpm::scale-domain-size mesh mp)
+  )
 
 
 (sb-ext:restrict-compiler-policy 'speed 3 3)
@@ -140,7 +141,8 @@
       (let* ((angle-rad (* angle (/ pi 180)))
              (init-stress 131d3)
              (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 131d3 (* 42d0 (/ pi 180))))
-             (gf 4.8d0)
+             ;(gf 4.8d0)
+             (gf 5d0)
              ;(length-scale (* 1 h))
              ;(length-scale (* 1 h))
              (length-scale (* 7.5d-3 1))
@@ -181,14 +183,14 @@
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-enable-fbar sim) t)
-      (setf (cl-mpm/damage::sim-enable-length-localisation sim) t)
+      (setf (cl-mpm/damage::sim-enable-length-localisation sim) nil)
       ;; (setf (cl-mpm::sim-mass-filter sim) 1d0)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (let ((ms 1d0))
         (setf (cl-mpm::sim-mass-scale sim) ms)
         (setf (cl-mpm:sim-damping-factor sim)
-              (* 0.1d0 (cl-mpm/setup::estimate-critical-damping sim))))
+              (* 1d-2 (cl-mpm/setup::estimate-critical-damping sim))))
       (let ((dt-scale 1d0))
         (setf
          (cl-mpm:sim-dt sim)
@@ -342,8 +344,8 @@
       (setf *enable-box-friction* nil)
       (cl-mpm/dynamic-relaxation:converge-quasi-static
        *sim*
-       :energy-crit 1d-1
-       :oobf-crit 1d-1
+       :energy-crit 1d-2
+       :oobf-crit 1d-2
        :dt-scale dt-scale
        :substeps 50
        :conv-steps 5000
@@ -403,8 +405,8 @@
                   do
                      (progn
                        (when (= rank 0)
-                         (format t "Step ~d ~%" steps))
-                       (when (= (mod steps 20) 0)
+                         (format t "Step ~d/~d ~%" steps load-steps))
+                       (when (= (mod steps 10) 0)
                          (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~2,'0d_~5,'0d.vtk" rank *sim-step*)) *sim*)
                         (when (= rank 0)
                           (save-json-penalty-box (merge-pathnames output-directory (format nil "sim_pb_~5,'0d.json" *sim-step*)) *sim*) )
@@ -537,10 +539,10 @@
          (overscale (if (uiop:getenv "OVER") (parse-float:parse-float (uiop:getenv "OVER")) 0d0))
          (mps 4)
          (scale 1d0)
-         (sample-scale 2d0)
-         (epsilon-scale 1d2)
+         (sample-scale 1d0)
+         (epsilon-scale 1d3)
          (piston-scale 1d0)
-         (output-dir (format nil "/nobackup/rmvn14/paper-1/plastic-damage/output-~F_~D_~f_~F-~f/" refine mps scale overscale load))
+         (output-dir (format nil "/nobackup/rmvn14/paper-1/plastic-damage/output-~F_~D_~f_~f_~F-~f/" refine mps scale epsilon-scale overscale load))
          ;(epsilon-scale (* epsilon-scale (/ (float refine 0d0) 4d0)))
          
          )
@@ -561,7 +563,7 @@
       )
     (run :output-directory output-dir 
          :displacement 1d-3
-         :dt-scale (/ 0.5d0 (sqrt (* piston-scale 1d-1 epsilon-scale))); 0.100d0
+         :dt-scale (/ 5d0 (* (sqrt piston-scale) (sqrt epsilon-scale))) ;(/ 1d0 (sqrt (* piston-scale 1d-1 epsilon-scale)))
          :refine refine
          :time-scale scale
          :sample-scale sample-scale
