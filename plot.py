@@ -12,8 +12,8 @@ def extract_vals(f):
     return refine,float(load)
 
 PLOT_RESIDUAL = True
-#top_dir = "/nobackup/rmvn14/paper-1/damage-mc/"
-top_dir = "./data/"
+top_dir = "/nobackup/rmvn14/paper-1/damage-mc/"
+#top_dir = "./data/"
 regex = re.compile(r'^output-.*')
 folders = list(filter(regex.search,os.listdir(top_dir+".")))
 

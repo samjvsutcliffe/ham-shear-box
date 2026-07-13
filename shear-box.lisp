@@ -23,7 +23,7 @@
 ;;   (cl-mpm::update-stress-kirchoff mesh mp dt fbar))
 
 
-(defparameter *damage-model* :SE)
+(defparameter *damage-model* :MC)
 ;; (defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-brittle) dt)
 ;;   (let ((damage-increment 0d0))
 ;;     (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
@@ -114,7 +114,7 @@
   :local-length-damaged 10d-10
   :enable-damage t
   :enable-plasticity nil
-  :psi (* 0d0 (/ pi 180))
+  :psi (* 5d0 (/ pi 180))
   :oversize (- 1d0 1d-3)
   )
 
@@ -174,7 +174,8 @@
              (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
              )
         (format t "Ductility ~E~%" ductility)
-        (make-mps-damage)
+        ;(make-mps-damage)
+        (make-mps-plastic-damage)
         ;(make-mps-mc-softening)
         ;(make-mps-mc-softening)
         )
@@ -253,7 +254,7 @@
          (box-offset (* mesh-size 2d0))
          (offset (list box-size box-offset))
          (rank (cl-mpi:mpi-comm-rank))
-         (mp-refine 2)
+         (mp-refine 0)
          )
     (setf *box-size* box-size)
     (defparameter *sim* (setup-test-column
@@ -336,6 +337,7 @@
     (&key (output-dir "./output/") 
        (refine 1)
        (displacement 0.1d-3)
+       (load-steps 10)
        (time-scale 1d0)
        (dt-scale 0.5d0)
        (damage-time-scale 1d0)
@@ -355,7 +357,7 @@
      *sim*
      :output-dir output-dir
      :plotter #'plot
-     :load-steps 10
+     :load-steps load-steps
      :substeps 20
      :criteria 1d-3
      :enable-damage enable-damage
@@ -640,13 +642,13 @@
   (let* ((refine (if (uiop:getenv "REFINE") (parse-integer (uiop:getenv "REFINE")) 2))
          (load (float (if (uiop:getenv "LOAD") (parse-float:parse-float (uiop:getenv "LOAD")) 72.5d3) 0d0))
          (damage (if (uiop:getenv "DAMAGE") (parse-float:parse-float (uiop:getenv "DAMAGE")) 0d0))
-         (mps 3)
+         (mps 4)
          (scale 1d0)
-         (sample-scale 2d0)
-         (epsilon-scale 1d2)
+         (sample-scale 1d0)
+         (epsilon-scale 1d3)
          (piston-scale 1d0)
-         ;(output-dir (format nil "/nobackup/rmvn14/paper-1/damage-mc/output-~F_~D_~f_~f_~F-~f/" refine mps scale piston-scale epsilon-scale load))
-         (output-dir (format nil "./data/output-~F_~D_~f_~f_~F-~f/" refine mps scale piston-scale epsilon-scale load))
+         (output-dir (format nil "/nobackup/rmvn14/paper-1/damage-mc/output-~F_~D_~f_~f_~F-~f/" refine mps scale piston-scale epsilon-scale load))
+         ;(output-dir (format nil "./data/output-~F_~D_~f_~f_~F-~f/" refine mps scale piston-scale epsilon-scale load))
          )
     (setf *damage* damage)
     (format t "Refine: ~A~%" refine)
@@ -662,7 +664,8 @@
       :piston-scale piston-scale
       )
     (run-adaptive :output-dir output-dir
-                  :displacement 0.4d-3
+                  :displacement 0.2d-3
+                  :load-steps 50
                   :refine refine
                   :time-scale scale
                   :sample-scale sample-scale
