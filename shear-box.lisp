@@ -166,7 +166,8 @@
       (let* ((E *elastic-constant*)
              (angle 42d0)
              (angle-rad (* angle (/ pi 180)))
-             (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 131d3 (* angle (/ pi 180))))
+             (init-stress 
+               (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 131d3 42d0))
              ;(gf 5d0)
              (gf 48d0)
              ;; (gf 4.8d0)
@@ -268,7 +269,7 @@
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
                       :corner-size (* mesh-size 0.25d0)
-                      :smoothness 4)
+                      :smoothness 1)
     (make-piston box-size box-offset surcharge-load epsilon-scale piston-scale)
     (dotimes (i mp-refine)
       (dolist (dir (list :y))
@@ -356,7 +357,7 @@
     (cl-mpm/dynamic-relaxation::run-adaptive-load-control
      *sim*
      :output-dir output-dir
-     :plotter #'plot
+     :plotter (lambda (sim))
      :load-steps load-steps
      :substeps 20
      :criteria 1d-3
@@ -379,8 +380,7 @@
        (push (get-load) *data-v*)
        (push (cl-mpm/dynamic-relaxation::get-damage *sim*) *data-damage*))
      :loading-function (lambda (percent)
-                         (setf *displacement-increment* (* displacement percent)))))
-    )
+                         (setf *displacement-increment* (* displacement percent))))))
 
 (defun run (&key (output-directory "./output/") 
               (refine 1)
