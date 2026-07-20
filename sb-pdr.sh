@@ -8,14 +8,12 @@
 #SBATCH --mem-per-cpu=1G
 #SBATCH -N 1-1                    # number of compute nodes. 
 
-module load gcc
-#module load intelmpi
+module load aocc/5.0.0
+module load aocl/5.0.0
 module load mvapich2
-module load aocl
 
 echo "Running code"
 #rm -r output-*
-
 
 #sbcl --dynamic-space-size 16000  --disable-debugger --load "build_step.lisp" --quit
 
@@ -25,5 +23,5 @@ export MV2_ENABLE_AFFINITY=0
 #export REFINE=6.0
 #export KAPPA=1.0
 #export lc=1.0
-mpirun ./mpi-worker --dynamic-space-size 16000 --disable-debugger
-#./mpi-worker --dynamic-space-size 16000 --disable-debugger
+#mpirun ./mpi-worker --dynamic-space-size 16000 --disable-debugger
+./mpi-worker --dynamic-space-size 16000 --disable-debugger

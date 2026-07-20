@@ -1,124 +1,87 @@
-(restrict-compiler-policy 'speed 3 3)
-(restrict-compiler-policy 'debug 0 0)
-(restrict-compiler-policy 'safety 0 0)
-(setf *block-compile-default* t)
+;; (sb-ext::restrict-compiler-policy 'speed  0 0)
+;; (sb-ext::restrict-compiler-policy 'debug  3 3)
+;; (sb-ext::restrict-compiler-policy 'safety 3 3)
+;; (setf *block-compile-default* t)
+(sb-ext:restrict-compiler-policy 'speed 3 3)
+(sb-ext:restrict-compiler-policy 'debug 0 0)
+(sb-ext:restrict-compiler-policy 'safety 0 0)
+;(setf *block-compile-default* t)
 
 (in-package :cl-mpm/examples/shear-box)
 
-(defmethod cl-mpm::update-stress-mp (mesh (mp cl-mpm/particle::particle-chalk-delayed) dt fbar)
-  (cl-mpm::update-stress-kirchoff-noscale mesh mp dt fbar)
-  (cl-mpm::update-domain-corner mesh mp dt)
-  (cl-mpm::scale-domain-size mesh mp)
-  )
+(declaim (optimize (debug 0) (safety 0) (speed 3)))
 
-(defmethod cl-mpm/damage::damage-model-calculate-y ((mp cl-mpm/particle::particle-chalk-delayed) dt)
-  (let ((damage-increment 0d0))
-    (with-accessors ((stress cl-mpm/particle::mp-undamaged-stress)
-                     (strain cl-mpm/particle::mp-strain)
-                     (damage cl-mpm/particle:mp-damage)
-                     (init-stress cl-mpm/particle::mp-initiation-stress)
-                     (critical-damage cl-mpm/particle::mp-critical-damage)
-                     (damage-rate cl-mpm/particle::mp-damage-rate)
-                     (pressure cl-mpm/particle::mp-pressure)
-                     (ybar cl-mpm/particle::mp-damage-ybar)
-                     (def cl-mpm/particle::mp-deformation-gradient)
-                     (angle cl-mpm/particle::mp-friction-angle)
-                     (c cl-mpm/particle::mp-coheasion)
-                     (nu cl-mpm/particle::mp-nu)
-                     (ft cl-mpm/particle::mp-ft)
-                     (fc cl-mpm/particle::mp-fc)
-                     (E cl-mpm/particle::mp-e)
-                     (de cl-mpm/particle::mp-elastic-matrix)
-                     (kc-r cl-mpm/particle::mp-k-compressive-residual-ratio)
-                     (kt-r cl-mpm/particle::mp-k-tensile-residual-ratio)
-                     (g-r cl-mpm/particle::mp-shear-residual-ratio)
-                     ) mp
-      (declare (double-float pressure damage))
-      (progn
-        (setf damage-increment 0d0)
-		;(setf damage-increment 
-        ;           (max 0d0
-        ;                (cl-mpm/damage::criterion-mohr-coloumb-stress-tensile
-        ;                 stress
-        ;                 (* 42d0 (/ pi 180d0))
-        ;                 )))
-        ;(setf damage-increment (cl-mpm/damage::tensile-energy-norm strain E de))
-        ;;Delocalisation switch
-        (setf (cl-mpm/particle::mp-damage-y-local mp) damage-increment)
-        (setf (cl-mpm/particle::mp-local-damage-increment mp) damage-increment)
-        ))))
+
+(defparameter *damage-model* :MC)
 
 (defun domain-decompose (sim)
-  (let ((rank (cl-mpi:mpi-comm-rank)))
-    (let ((dsize (floor (cl-mpi:mpi-comm-size)))
-          (dsize-square (floor (sqrt (cl-mpi:mpi-comm-size)))))
-      (setf (cl-mpm/mpi::mpm-sim-mpi-domain-count sim)
-            ;(list dsize-square dsize-square 1)
-            (list dsize 1 1)
-            ))
-    (when (= rank 0)
-      (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
-      (format t "Decompose~%"))
-    (let ((mp-0 (aref (cl-mpm:sim-mps *sim*) 0)))
-      (when (slot-exists-p mp-0 'cl-mpm/particle::local-length)
-        (let ((dhalo-size (* 1 (cl-mpm/particle::mp-local-length mp-0))))
-	        (setf (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size *sim*) dhalo-size)) ) )
-    (let ((size 0.06d0))
-      (cl-mpm/mpi::domain-decompose
-       sim
-       :domain-scaler
-       (lambda (domain)
-         (destructuring-bind (x y z) domain
-           (let ((dnew (list (mapcar (lambda (p)
-                                       (when (and (> p 0d0)
-                                                  (< p 1d0))
-                                         (setf p (min 1d0 (+ (/ p 3) 1/3))))
-                                       p) x)
-                             y z)))
-             (format t "Domain ~A ~A~%" (list x y z) dnew)
-             dnew)))))
-    (format t "Rank ~D - Sim MPs: ~a~%" rank (length (cl-mpm:sim-mps sim)))))
+  (when (typep sim 'cl-mpm/mpi::mpm-sim-mpi)
+    (let ((rank (cl-mpi:mpi-comm-rank)))
+      (let ((height 1))
+        (when (> (cl-mpi:mpi-comm-size) 8)
+          (setf height 2))
+        (let* ((dsize (ceiling (cl-mpi:mpi-comm-size) height))
+               (dsize-square (ceiling (sqrt (cl-mpi:mpi-comm-size)) 2)))
+          (setf (cl-mpm/mpi::mpm-sim-mpi-domain-count sim)
+                                        ;(list dsize-square dsize-square 1)
+                (list dsize height 1)
+                )))
+      (when (= rank 0)
+        (format t "Sim MPs: ~a~%" (length (cl-mpm:sim-mps sim)))
+        (format t "Decompose~%"))
+      (let ((mp-0 (aref (cl-mpm:sim-mps *sim*) 0)))
+        (when (slot-exists-p mp-0 'cl-mpm/particle::local-length)
+          (let ((dhalo-size (* 1 (cl-mpm/particle::mp-local-length mp-0))))
+	          (setf (cl-mpm/mpi::mpm-sim-mpi-halo-damage-size *sim*) dhalo-size))))
+      (let ((size 0.06d0))
+        (cl-mpm/mpi::domain-decompose
+         sim
+         :domain-scaler
+         (lambda (domain)
+           (destructuring-bind (x y z) domain
+             (let ((dnew (list (mapcar (lambda (p)
+                                         (when (and (> p 0d0)
+                                                    (< p 1d0))
+                                           (setf p (min 1d0 (+ (/ p 3) 1/3))))
+                                         p) x)
+                               (mapcar (lambda (p)
+                                         (when (and (> p 0d0)
+                                                    (< p 1d0))
+                                           (setf p (min 1d0 (+ (/ p 2) 0))))
+                                         p) y)
+                               z)))
+               (format t "Domain ~A ~A~%" (list x y z) dnew)
+               dnew)))))
+      (format t "Rank ~D - Sim MPs: ~a~%" rank (length (cl-mpm:sim-mps sim))))))
 
+
+(defparameter *overscale* (if (uiop:getenv "OVER") (parse-float:parse-float (uiop:getenv "OVER")) 0d0))
 
 (defmpgen make-mps-plastic-damage
-  'cl-mpm/particle::particle-chalk-delayed
-  :E 1d9
+  'cl-mpm/particle::particle-chalk-brittle
+  :E *elastic-constant*
   :nu 0.24d0
   :kt-res-ratio 1d0
-  :kc-res-ratio 0d0
-  :g-res-ratio 0.359d0
-  :peerlings-damage t
-
-  :friction-angle 42d0
-  :initiation-stress init-stress;18d3
-  :delay-time 1d-2
-  :delay-exponent 1d0
-  :damage 0d0
+  :kc-res-ratio 0.99d0
+  :friction-angle (cl-mpm/utils:deg-to-rad angle)
+  :residual-friction (cl-mpm/utils:deg-to-rad 30d0)
+  :initiation-stress init-stress
   :ductility ductility
   :local-length length-scale
-  :local-length-damaged 10d-10
-
   :enable-damage t
   :enable-plasticity t
-
-  :psi (* 5d0 (/ pi 180))
-  :phi (* 42d0 (/ pi 180))
-  :c (* 131d3 overscale)
-  :phi-r (* 30d0 (/ pi 180))
-  :c-r 0d0
-  :softening 0d0
+  :psi (cl-mpm/utils:deg-to-rad 5d0)
+  :oversize *overscale*
   )
 
 (defun setup-test-column (size offset block-size &optional (e-scale 1) (mp-scale 1) &key (angle 0d0) (friction 0.1d0) (surcharge-load 72.5d3)
-                               (overscale 10d0)
                                )
-  (let* ((sim (cl-mpm/setup::make-block
+  (let* ((sim (cl-mpm/setup:make-simple-sim
                (/ 1d0 e-scale)
                (mapcar (lambda (x) (* x e-scale)) size)
-               ;:sim-type 'cl-mpm::mpm-sim-usf
-               ;:sim-type 'cl-mpm/damage::mpm-sim-damage
-               ;:sim-type 'cl-mpm/mpi::mpm-sim-mpi-nodes
-               :sim-type 'cl-mpm/mpi::mpm-sim-mpi-nodes-damage
+               :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
+               :args-list (list :enable-aggregate t
+                                :gravity 0d0)
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
          (h-x (/ h 1d0))
@@ -130,79 +93,71 @@
          )
     (declare (double-float h density))
     (progn
-      (let* ((angle-rad (* angle (/ pi 180)))
-             (init-stress 131d3)
-             (init-stress (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 131d3 (* 42d0 (/ pi 180))))
-             (gf 5d0)
-             ;(length-scale (* 1 h))
-             ;(length-scale (* 1 h))
-             (length-scale (* 7.5d-3 1))
-             ;(length-scale (* 0.015d0 2))
-             (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9)))
+      (let* ((E *elastic-constant*)
+             (angle 42d0)
+             (angle-rad (* angle (/ pi 180)))
+             (init-stress 
+               (cl-mpm/damage::mohr-coloumb-coheasion-to-tensile 131d3 42d0))
+             ;(gf 5d0)
+             (gf 4.8d0)
+             ;; (gf 4.8d0)
+             (length-scale 7.5d-3)
+             (ductility (cl-mpm/damage::estimate-ductility-jirsek2004 gf length-scale init-stress 1d9))
+             )
         (format t "Ductility ~E~%" ductility)
+        ;(make-mps-damage)
         (make-mps-plastic-damage)
         ;(make-mps-mc-softening)
         ;(make-mps-mc-softening)
-        ) 
+        )
+      (defparameter *mesh-resolution* h-x)
+      (let* ((sur-height h-x)
+             (sur-size (list 0.06d0 sur-height))
+             (load (float surcharge-load 0d0))
+             (gravity (if (> load 0d0)
+                          (/ load (* density sur-height))
+                          0d0))
+             (mp-surcharge t))
         (cl-mpm:iterate-over-mps
          (cl-mpm:sim-mps sim)
          (lambda (mp)
            (with-accessors ((stress cl-mpm/particle:mp-stress)
                             (strain cl-mpm/particle:mp-strain)
+                            (strain-n cl-mpm/particle:mp-strain-n)
                             (E cl-mpm/particle::mp-E)
                             (nu cl-mpm/particle::mp-nu)
                             (de cl-mpm/particle::mp-elastic-matrix))
                mp
-             (let* ((k-ratio (* 0d0 (/ nu (- 1d0 nu))))
+             (let* (;; (k-ratio 0d0)
+                    (k-ratio (/ nu (- 1d0 nu)));;k0
+                    ;; (k-ratio (- 1d0 (sin (* 42d0 (/ pi 180)))));;k0
                     (stresses (cl-mpm/utils:voigt-from-list (list
-                                                              (float  (- (* surcharge-load k-ratio)) 0d0)
-                                                              (float  (- surcharge-load) 0d0)
-                                                              (float  (- (* surcharge-load k-ratio)) 0d0)
-                                                              0d0
-                                                              0d0
-                                                              0d0)))
+                                                             (- (* surcharge-load k-ratio))
+                                                             (- surcharge-load)
+                                                             (- (* surcharge-load k-ratio))
+                                                             0d0
+                                                             0d0
+                                                             0d0)))
                     (strains (magicl:linear-solve de stresses)))
-               (setf stress stresses 
-                     strain strains)))))
+               (setf stress stresses
+                     strain   strains
+                     strain-n (cl-mpm/utils:voigt-copy strains))))))
 
-      (defparameter *mesh-resolution* h-x)
+        (format t "Gravity ~F~%" gravity))
+
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
-      (setf (cl-mpm::sim-enable-fbar sim) t)
-      (setf (cl-mpm::sim-velocity-algorithm sim) :BLEND)
+      (setf (cl-mpm::sim-enable-fbar sim) nil)
+      (setf (cl-mpm/damage::sim-enable-length-localisation sim) nil)
       ;; (setf (cl-mpm::sim-mass-filter sim) 1d0)
       (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
       (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
-      (let ((ms 1d0))
-        (setf (cl-mpm::sim-mass-scale sim) ms)
-        (setf (cl-mpm:sim-damping-factor sim)
-              (* 0.1d0 (cl-mpm/setup::estimate-critical-damping sim))))
-      (let ((dt-scale 1d0))
-        (setf
-         (cl-mpm:sim-dt sim)
-         (* dt-scale h
-            (sqrt (cl-mpm::sim-mass-scale sim))
-            (sqrt (/ density (cl-mpm/particle::mp-p-modulus (aref (cl-mpm:sim-mps sim) 0)))))))
-      (format t "Estimated dt ~F~%" (cl-mpm:sim-dt sim))
-		(setf (cl-mpm:sim-bcs sim)
-					(cl-mpm/bc::make-outside-bc-varfix
-					 (cl-mpm:sim-mesh sim)
-					 '(0 nil nil)
-					 '(0 nil nil)
-					 '(nil 0 nil)
-					 '(nil 0 nil)
-					 '(nil nil 0)
-					 '(nil nil 0)))
+      (cl-mpm/setup::setup-bcs
+       sim)
       sim)))
-
-(declaim (notinline get-piston-load))
-(defun get-piston-load ()
-  (cl-mpm/mpi:mpi-sum (cl-mpm/penalty::bc-penalty-load *piston-penalty*)))
-
 
 (defun setup (&key (refine 1d0) (mps 4) (friction 0.0d0) (surcharge-load 72.5d3)
                 (epsilon-scale 1d2)
-                (overscale 10d0)
                 (piston-scale 1d0))
   (defparameter *displacement-increment* 0d0)
   (let* ((mps-per-dim mps)
@@ -213,6 +168,7 @@
          (box-offset (* mesh-size 2d0))
          (offset (list box-size box-offset))
          (rank (cl-mpi:mpi-comm-rank))
+         (mp-refine 0)
          )
     (setf *box-size* box-size)
     (defparameter *sim* (setup-test-column
@@ -222,15 +178,14 @@
                          (/ 1d0 mesh-size)
                          mps-per-dim
                          :friction friction
-                         :overscale overscale
                          :surcharge-load surcharge-load))
     (make-penalty-box *sim* box-size (* 2d0 box-size) sunk-size friction box-offset
                       :epsilon-scale epsilon-scale
                       :corner-size (* mesh-size 0.25d0)
-                      :smoothness 4)
+                      :smoothness 1)
     (make-piston box-size box-offset surcharge-load epsilon-scale piston-scale)
-    (dotimes (i 1)
-      (dolist (dir (list :x :y))
+    (dotimes (i mp-refine)
+      (dolist (dir (list :y))
         (cl-mpm::split-mps-criteria
          *sim*
          (lambda (mp h)
@@ -267,10 +222,20 @@
 (defun get-load ()
   (let ((normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
     (cl-mpm/mpi:mpi-sum 
-      (+ 
+      (+
       (cl-mpm/penalty::resolve-load-direction *shear-box-struct-left* normal)
-      (cl-mpm/penalty::resolve-load-direction *shear-box-struct-right* normal)
+      ;(cl-mpm/penalty::resolve-load-direction *shear-box-struct-right* normal)
       ))))
+
+(defun get-load-left ()
+  (let ((normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
+    (cl-mpm/mpi:mpi-sum 
+      (cl-mpm/penalty::resolve-load-direction *shear-box-struct-left* normal))))
+
+(defun get-load-right ()
+  (let ((normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
+    (cl-mpm/mpi:mpi-sum 
+      (cl-mpm/penalty::resolve-load-direction *shear-box-struct-right* normal))))
 
 
 ;(defun get-load ()
@@ -278,6 +243,59 @@
 ;      (- 
 ;        (cl-mpm/penalty::bc-penalty-load *shear-box-left-dynamic*)
 ;        (cl-mpm/penalty::bc-penalty-load *shear-box-right-dynamic*)))
+
+(defparameter *data-disp* nil)
+(defparameter *data-v* nil)
+(defparameter *data-damage* nil)
+(defun run-adaptive
+    (&key (output-dir "./output/") 
+       (refine 1)
+       (displacement 0.1d-3)
+       (load-steps 10)
+       (time-scale 1d0)
+       (dt-scale 0.5d0)
+       (damage-time-scale 1d0)
+       (sample-scale 1d0)
+       (enable-plasticity t)
+       (enable-damage nil)
+       (surcharge-load 0d0)
+       )
+
+  (let (;; (total-disp 0.12d-3)
+        )
+    (setf *displacement-increment* 0d0)
+    (defparameter *data-disp* nil)
+    (defparameter *data-v* nil)
+    (defparameter *data-damage* nil)
+    (cl-mpm/dynamic-relaxation::run-adaptive-load-control
+     *sim*
+     :output-dir output-dir
+     :plotter (lambda (sim))
+     :load-steps load-steps
+     :substeps 50
+     :criteria 1d-3
+     :enable-damage enable-damage
+     :enable-plastic enable-plasticity
+     :max-adaptive-steps 15
+     :min-adaptive-steps -8
+     :max-damage-inc 0.5d0
+     :max-plastic-inc 5d0
+     :dt-scale 0.9d0
+     :save-vtk-dr nil
+     :save-vtk-loadstep t
+     :post-iter-step (lambda (i o e)
+                       (format t "Penalty load ~E - aim ~E~%"
+                               (/ (get-piston-load *sim*) 0.06d0)
+                               surcharge-load))
+     :post-conv-step
+     (lambda (sim)
+       (save-disp sim output-dir)
+       (push *displacement-increment* *data-disp*)
+       (push (get-load) *data-v*)
+       (push (cl-mpm/dynamic-relaxation::get-damage *sim*) *data-damage*))
+     :loading-function (lambda (percent)
+                         (setf *displacement-increment* (* displacement percent)))))
+    )
 
 (defun run (&key (output-directory "./output/") 
               (refine 1)
@@ -297,7 +315,7 @@
        (merge-pathnames output-directory "settings.json")
        *sim*)
       (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :supersede)
-        (format stream "disp,load,plastic,damage,energy~%")))
+        (format stream "disp,load,plastic,damage,energy,l-left,l-right~%")))
     (vgplot:close-all-plots)
     (let* ((displacment displacement)
            (time-per-mm (* 100d0 time-scale))
@@ -306,6 +324,8 @@
            (target-time (/ total-time load-steps))
            (dt (cl-mpm:sim-dt *sim*))
            (substeps (floor target-time dt))
+           (max-load 0d0)
+           (skip-level 0.5d0)
            ;(dt-scale 0.5d0)
            ;(enable-plasticity (cl-mpm/particle::mp-enable-plasticity (aref (cl-mpm:sim-mps *sim*) 0)))
            (disp-inc (/ displacment load-steps)))
@@ -347,10 +367,12 @@
             do (when (= (cl-mpm/particle::mp-index mp) 0)
                  (setf (cl-mpm/particle::mp-enable-plasticity mp) 
                        enable-plasticity))) 
-
-      (setf (cl-mpm:sim-damping-factor *sim*)
-            (* 1d-2
-               (cl-mpm/setup::estimate-critical-damping *sim*)))
+      (let ((ms 1d0))
+        (setf (cl-mpm::sim-mass-scale *sim*) ms)
+        (setf (cl-mpm:sim-damping-factor *sim*)
+              (* 1d-2
+                 (sqrt ms)
+                 (cl-mpm/setup::estimate-critical-damping *sim*))))
 
       (setf (cl-mpm:sim-dt *sim*) (cl-mpm/setup::estimate-elastic-dt *sim* :dt-scale dt-scale))
       (setf substeps (round target-time (cl-mpm:sim-dt *sim*)))
@@ -364,6 +386,7 @@
         (setf (cl-mpm/damage::sim-damage-delocal-counter-max *sim*) substeps))
 
       (when (= rank 0)
+        (format t "Delay time ~E~%" (* target-time 1d-1))
         (format t "Substeps ~D~%" substeps))
 
 
@@ -375,55 +398,71 @@
             (p-av 0d0)
             (d-av 0d0)
             (e-av 0d0)
+            (load-l 0d0)
+            (load-r 0d0)
             ) 
         (format t "Running unloaded step ~D~%" substeps)
         (dotimes (i substeps) 
           (cl-mpm::update-sim *sim*) 
           (incf load-av (/ (get-load) substeps)))
         (setf load-av (get-load))
+        (setf load-l (get-load-left) 
+              load-r (get-load-right))
         (setf disp-av *displacement-increment*)
         (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
-          (format stream "~f,~f,~f,~f~%" disp-av load-av p-av d-av e-av)))
+          (format stream "~f,~f,~f,~f,~f,~f~%" disp-av load-av p-av d-av e-av load-l load-r)))
       (reset-load)
-      (time (loop for steps from 0 below load-steps
+      (rank-0-time 
+        rank
+        (loop for steps from 0 below load-steps
                   while *run-sim*
                   do
                      (progn
                        (when (= rank 0)
-                         (format t "Step ~d ~%" steps)
-                         (format t "~A ~%" (local-time:now)))
+                         (format t "Step ~d ~%" steps))
                        (when (= (mod steps 10) 0)
                          (cl-mpm/output:save-vtk (merge-pathnames output-directory (format nil "sim_~2,'0d_~5,'0d.vtk" rank *sim-step*)) *sim*)
                         (when (= rank 0)
                           (save-json-penalty-box (merge-pathnames output-directory (format nil "sim_pb_~5,'0d.json" *sim-step*)) *sim*) )
+                          (save-vtk-penalty-box (merge-pathnames output-directory (format nil "sim_pb_~5,'0d.vtk" *sim-step*)) *sim*)  
                          ;(cl-mpm/output::save-vtk-nodes (merge-pathnames output-directory (format nil "sim_nodes_~2,'0d_~5,'0d.vtk" rank *sim-step*)) *sim*)
                          )
                        (let ((load-av 0d0)
                              (disp-av 0d0)
                              (p-av 0d0)
                              (d-av 0d0)
-                             (e-av 0d0))
+                             (e-av 0d0)
+                             (load-l 0d0)
+                             (load-r 0d0)
+                             )
                          (reset-load)
                          (time
                           (dotimes (i substeps)
                             (cl-mpm::update-sim *sim*)
-                            (incf load-av (/ (get-load) substeps))
-                            (incf disp-av (/ *displacement-increment* substeps))
+                            ;(incf load-av (/ (get-load) substeps))
+                            ;(incf disp-av (/ *displacement-increment* substeps))
                             (incf *displacement-increment* (/ disp-inc substeps))
                             (incf e-av (/ (cl-mpm/dynamic-relaxation::estimate-energy-norm *sim*) substeps))
                             (incf *t* (cl-mpm::sim-dt *sim*))))
                          (sb-ext:gc)
                          (setf load-av (get-load))
                          (setf disp-av *displacement-increment*)
+                         (setf load-l (get-load-left) 
+                               load-r (get-load-right))
                          (setf d-av (get-damage))
                          (setf p-av (get-plastic))
+                         (setf max-load (max max-load load-av))
+						 ;(when skip-level
+						 ;    (when (and (< load-av (* max-load skip-level))
+						 ;   			(< 10 steps))
+                         ;      (setf *run-sim* nil)))
                          (when (= rank 0)
                            (format t "Surcharge load ~E~%" (/ *piston-confinement* substeps))
                            (setf *piston-confinement* 0d0))
                          (when (= rank 0)
                            (format t "Disp ~E - Load ~E~%" disp-av load-av)
                            (with-open-file (stream (merge-pathnames output-directory "disp.csv") :direction :output :if-exists :append)
-                             (format stream "~f,~f,~f,~f,~f~%" disp-av load-av p-av d-av e-av))))
+                             (format stream "~f,~f,~f,~f,~f,~f,~f~%" disp-av load-av p-av d-av e-av load-l load-r))))
 
                        (incf *sim-step*)
                        (multiple-value-bind (dt-e substeps-e) (cl-mpm:calculate-adaptive-time *sim* target-time :dt-scale dt-scale)
@@ -516,53 +555,48 @@
 (defparameter *damage* 0d0)
 (defun mpi-loop ()
   (let* ((refine (if (uiop:getenv "REFINE") (parse-integer (uiop:getenv "REFINE")) 2))
-         (load (if (uiop:getenv "LOAD") (parse-float:parse-float (uiop:getenv "LOAD")) 72.5d3))
-         (damage (if (uiop:getenv "DAMAGE") (parse-float:parse-float (uiop:getenv "DAMAGE")) 0d0))
-         (overscale (if (uiop:getenv "OVER") (parse-float:parse-float (uiop:getenv "OVER")) 0d0))
-         (mps 3)
-         (scale 0.5d0)
+         (load (float (if (uiop:getenv "LOAD") (parse-float:parse-float (uiop:getenv "LOAD")) 72.5d3) 0d0))
+         (damage (if (uiop:getenv "DAMAGE") (parse-float:parse-float (uiop:getenv "DAMAGE")) 0d0)
+         (overscale (if (uiop:getenv "OVER") (parse-float:parse-float (uiop:getenv "OVER")) 0d0)))
+         (mps 4)
+         (scale 1d0)
          (sample-scale 1d0)
-         (epsilon-scale 1d2)
+         (epsilon-scale 1d3)
          (piston-scale 1d0)
-         (damage-effect 1d0)
-         ;(damage-effect (expt (- 1d0 damage) 1/2))
-         ;(damage 0.5)
-         (output-dir (format nil "/nobackup/rmvn14/paper-1/plastic-damage-residual/output-~F_~D_~f_~f_~F-~f/" refine mps scale damage overscale load))
-         ;(epsilon-scale (* epsilon-scale damage-effect))
+         (output-dir (format nil "/nobackup/rmvn14/paper-1/plastic-damage-residual/output-~F_0.5_~D_~f_~f_~F-~f/" refine mps scale damage overscale load))
          )
     (setf *damage* damage)
     (format t "Refine: ~A~%" refine)
     (format t "Load: ~A~%" load)
     (format t "Damage: ~A~%" damage)
     (ensure-directories-exist (merge-pathnames output-dir))
-    (setup 
-      :refine refine 
+    (setup
+      :refine refine
       :mps mps
       :surcharge-load load
-      :overscale overscale
+      :friction 0d0
       :epsilon-scale epsilon-scale
       :piston-scale piston-scale
       )
-	(let ((k (cl-mpm/damage::find-k-damage-mp (aref (cl-mpm:sim-mps *sim*) 0) damage)))
-                              (cl-mpm:iterate-over-mps
-                               (cl-mpm:sim-mps *sim*)
-                               (lambda (mp)
-                                 (setf (cl-mpm/particle::mp-history-stress mp)
-                                       k)
-                                     (cl-mpm/damage::update-damage mp 1d-3))))
-    (run :output-directory output-dir 
-         :displacement 6d-3
-         :dt-scale (/ 0.5d0 (* (sqrt (* piston-scale 1d-1 epsilon-scale)) damage-effect)); 0.100d0
-         :refine refine
-         :time-scale scale
-         :sample-scale sample-scale
-         :enable-plasticity t
-         :enable-damage nil)
-    ;(run-static output-dir)
+    (cl-mpm:iterate-over-mps 
+      (cl-mpm:sim-mps *sim*) 
+      (lambda (mp) 
+        (cl-mpm/damage::set-mp-damage mp damage)))
+    (run-adaptive :output-dir output-dir
+                  :displacement 1d-3
+                  :load-steps 200
+                  :refine refine
+                  :time-scale scale
+                  :sample-scale sample-scale
+                  :enable-plasticity t
+                  :enable-damage t
+                  :surcharge-load load
+                  )
     ))
 
 (let ((threads (parse-integer (if (uiop:getenv "OMP_NUM_THREADS") (uiop:getenv "OMP_NUM_THREADS") "1"))))
-  (setf lparallel:*kernel* (lparallel:make-kernel threads :name "custom-kernel"))
+  ;(setf lparallel:*kernel* (lparallel:make-kernel threads :name "custom-kernel"))
+  (cl-mpm/utils:set-workers threads)
   (format t "Thread count ~D~%" threads))
 (defparameter *run-sim* nil)
 (mpi-loop)

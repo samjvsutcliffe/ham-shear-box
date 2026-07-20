@@ -40,7 +40,8 @@ def extract_vals(f):
     #refine = float(refine)
     return refine,float(load)
 
-top_dir = "./plastic-damage-residual/"
+#top_dir = "./plastic-damage-residual/"
+top_dir = "/nobackup/rmvn14/paper-1/plastic-damage-residual/"
 regex = re.compile(r'^output-.*')
 folders = list(filter(regex.search,os.listdir(top_dir)))
 
@@ -177,10 +178,10 @@ for colour,unique_id in zip(colours,unique_ids):
         m,b = np.polyfit(surcharge, residual, 1)
         #plt.scatter(surcharge,residual,label="Residual - {} - $\SI{{{:.2f}}}{{\degree}}$, $\SI{{{:.2f}}}{{\kilo\pascal}}$".format(unique_id,np.arctan(m)*180/np.pi,b*1e-3),color=colour,marker="x")
         plt.scatter(surcharge,residual,label="Residual - {} - {:.2f} deg, {:.2f} kPa".format(unique_id,np.arctan(m)*180/np.pi,b*1e-3),color=colour,marker="x") # r = plt.plot(surcharge,residual,color=colour,ls="--")
-        plt.axline((0,b),slope=m,c=colour,ls="-")
+        plt.axline((0,b),slope=m,c=colour,ls="--")
 
-        plt.axline((0,0),slope=np.tan(30 * np.pi/180),ls="-.")
-        plt.axline((0,131e3),slope=np.tan(42 * np.pi/180),ls="-.")
+        plt.axline((0,0),slope=np.tan(30 * np.pi/180),ls="-")
+        plt.axline((0,131e3),slope=np.tan(42 * np.pi/180),ls="-")
         ticformat = ticker.FuncFormatter(lambda x,pos: "{0:g}".format(x*1e-3))
         plt.gca().xaxis.set_major_formatter(ticformat)
         plt.gca().yaxis.set_major_formatter(ticformat)
@@ -190,6 +191,7 @@ for colour,unique_id in zip(colours,unique_ids):
         plt.ylabel("Shear stress (kPa)")
         # plt.legend(fontsize="5")
         # plt.legend()
+        plt.legend()
         plt.tight_layout()
         plt.savefig("frictional.pdf")
 plt.show()
