@@ -130,7 +130,8 @@
       (let* ((dc (cl-mpm/particle::mp-damage-compression (aref (cl-mpm::sim-mps sim) 0)))
              (sur-height h-x)
              (sur-size (list 0.06d0 sur-height))
-             (load (/ (float surcharge-load 0d0) dc))
+             (load (/ (float surcharge-load 0d0) (- 1d0 dc)))
+             (load (/ (float surcharge-load 0d0) 1d0))
              (gravity (if (> load 0d0)
                           (/ load (* density sur-height))
                           0d0))
@@ -321,8 +322,8 @@
          (sample-scale 1d0)
          (epsilon-scale 1d2)
          (piston-scale 1d0)
-         (output-dir (format nil "./data/output-~F_0.5_~D_~f_~f_~F-~f/" refine mps scale damage overscale load))
-         ;(output-dir (format nil "/nobackup/rmvn14/paper-1/plastic-damage-residual/output-~F_0.5_~D_~f_~f_~F-~f/" refine mps scale damage overscale load))
+         ;(output-dir (format nil "./data/output-~F_0.5_~D_~f_~f_~F-~f/" refine mps scale damage overscale load))
+         (output-dir (format nil "/nobackup/rmvn14/paper-1/plastic-damage-residual/output-~F_0.5_~D_~f_~f_~F-~f/" refine mps scale damage overscale load))
          )
     (setf *damage* damage)
     (format t "Refine: ~A~%" refine)
@@ -337,6 +338,8 @@
       :epsilon-scale epsilon-scale
       :piston-scale piston-scale
       )
+    (cl-mpm::domain-sort-mps *sim*)
+
     
 
     (push (list :SCALAR "damage-tcs-c" #'cl-mpm/particle::mp-damage-compression) (cl-mpm::sim-output-list *sim*))
