@@ -24,4 +24,4 @@ export MV2_ENABLE_AFFINITY=0
 #export KAPPA=1.0
 #export lc=1.0
 #mpirun ./mpi-worker --dynamic-space-size 16000 --disable-debugger
-./mpi-worker --dynamic-space-size 16000 --disable-debugger
+mpirun -N 1 ./mpi-worker --dynamic-space-size 16000 --disable-debugger

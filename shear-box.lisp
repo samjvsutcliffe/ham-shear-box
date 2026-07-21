@@ -279,7 +279,7 @@
      :max-adaptive-steps 15
      :min-adaptive-steps -8
      :max-damage-inc 0.5d0
-     :max-plastic-inc 5d0
+     :max-plastic-inc 20d0
      :dt-scale 0.9d0
      :save-vtk-dr nil
      :save-vtk-loadstep t
@@ -507,7 +507,7 @@
                           :energy-crit 1d-2
                           :oobf-crit 1d-2
                           :substeps 10
-                          :conv-steps 200
+                          :conv-steps 100
                           :post-iter-step
                           (lambda (i energy oobf)))
 
@@ -556,8 +556,8 @@
 (defun mpi-loop ()
   (let* ((refine (if (uiop:getenv "REFINE") (parse-integer (uiop:getenv "REFINE")) 2))
          (load (float (if (uiop:getenv "LOAD") (parse-float:parse-float (uiop:getenv "LOAD")) 72.5d3) 0d0))
-         (damage (if (uiop:getenv "DAMAGE") (parse-float:parse-float (uiop:getenv "DAMAGE")) 0d0)
-         (overscale (if (uiop:getenv "OVER") (parse-float:parse-float (uiop:getenv "OVER")) 0d0)))
+         (damage (if (uiop:getenv "DAMAGE") (parse-float:parse-float (uiop:getenv "DAMAGE")) 0d0))
+         (overscale (if (uiop:getenv "OVER") (parse-float:parse-float (uiop:getenv "OVER")) 0d0))
          (mps 4)
          (scale 1d0)
          (sample-scale 1d0)
@@ -583,8 +583,8 @@
       (lambda (mp) 
         (cl-mpm/damage::set-mp-damage mp damage)))
     (run-adaptive :output-dir output-dir
-                  :displacement 1d-3
-                  :load-steps 200
+                  :displacement 3d-3
+                  :load-steps 100
                   :refine refine
                   :time-scale scale
                   :sample-scale sample-scale

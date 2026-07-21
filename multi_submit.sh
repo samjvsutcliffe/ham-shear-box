@@ -3,13 +3,13 @@ module load aocc/5.0.0
 module load aocl/5.0.0
 module load mvapich2
 export MV2_ENABLE_AFFINITY=0
-sbcl --dynamic-space-size 16000  --disable-debugger --load "build_step.lisp" --quit
+#sbcl --dynamic-space-size 16000  --disable-debugger --load "build_step.lisp" --quit
 #rm -r output-*
 
 # 0.999
 for d in 0 0.5 0.9 0.99 0.999
 do
-    for o in 1
+    for o in 0
     do
         for ref in 4
         do

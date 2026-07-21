@@ -5,7 +5,7 @@ import pandas as pd
 import os
 import numpy as np
 import re
-mpl.use("pdf")
+#mpl.use("pdf")
 
 from scipy import integrate
 
@@ -62,7 +62,7 @@ colours = prop_cycle.by_key()['color']
 fig = plt.figure(figsize=(width,height),dpi=200)
 fig = plt.figure(figsize=(width,height),dpi=200)
 
-load_zeroing = True
+load_zeroing = False
 # load_zeroing = False
 # load_combined = True
 load_combined = False
@@ -95,14 +95,15 @@ for colour,unique_id in zip(colours,unique_ids):
     folders_filtered = list(filter(lambda x: x.split("-")[2] == "100000.0",folders))
     for i in folders_filtered:
         print("loading folder: ",i)
-        mpm = get_load("./{}/disp.csv".format(i))
-        if len(mpm["load"]) > 0:
-            #if load_zeroing:
-            #    mpm["load"] = mpm["load"] - mpm["load"].values[0]
-            l=plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load"].values,label="d = {}".format(i.split("_")[-2]),marker=".")
-            # plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load-diff"].values,label=i,marker="x",c=l[0].get_color())
-            print("Shear modulus {}GPa".format(1e-9*mpm["load"].max()/mpm["disp"].values[mpm["load"].argmax()]))
-            maxload = (1e-3/0.06)*mpm["load"].max()
+        if os.path.isfile(top_dir+"./{}/disp.csv".format(i)):
+            mpm = get_load("./{}/disp.csv".format(i))
+            if len(mpm["load"]) > 0:
+                #if load_zeroing:
+                #    mpm["load"] = mpm["load"] - mpm["load"].values[0]
+                l=plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load"].values,label="d = {}".format(i.split("_")[-2]),marker=".")
+                # plt.plot(1e3*mpm["disp"].values,(1e-3/0.06)*mpm["load-diff"].values,label=i,marker="x",c=l[0].get_color())
+                print("Shear modulus {}GPa".format(1e-9*mpm["load"].max()/mpm["disp"].values[mpm["load"].argmax()]))
+                maxload = (1e-3/0.06)*mpm["load"].max()
     plt.xlabel("Displacement (mm)")
     plt.ylabel("Shear stress (kPa)")
     plt.legend()
@@ -147,22 +148,23 @@ for colour,unique_id in zip(colours,unique_ids):
     plt.figure(2)
     for f in folders:
         refine,load = extract_vals(f)
-        mpm = get_load("./{}/disp.csv".format(f))
-        # mpm["load"] = mpm["l-left"]
-        if len(mpm["load"]) > 0:
-            #if load_zeroing:
-            #    mpm["load"] = mpm["load"] - mpm["load"].values[0]
-            width = 0.06
-            p = mpm["load"].max()/width
-            r = mpm["load"].values[-1]/width
-            #residual_window = 0.25
-            #residual_back = round(len(mpm["load"].values) * (1 - residual_window))
-            #r = mpm["load"].values[residual_back:].mean()/width
-            surcharge.append(load)
-            peak.append(p)
-            residual.append(r)
-            # plt.scatter(load,r)
-            # plt.scatter(load,p)
+        if os.path.isfile(top_dir+"./{}/disp.csv".format(i)):
+            mpm = get_load("./{}/disp.csv".format(f))
+            # mpm["load"] = mpm["l-left"]
+            if len(mpm["load"]) > 0:
+                #if load_zeroing:
+                #    mpm["load"] = mpm["load"] - mpm["load"].values[0]
+                width = 0.06
+                p = mpm["load"].max()/width
+                r = mpm["load"].values[-1]/width
+                #residual_window = 0.25
+                #residual_back = round(len(mpm["load"].values) * (1 - residual_window))
+                #r = mpm["load"].values[residual_back:].mean()/width
+                surcharge.append(load)
+                peak.append(p)
+                residual.append(r)
+                # plt.scatter(load,r)
+                # plt.scatter(load,p)
 
     if len(peak) > 0:
         peak = [x for y, x in sorted(zip(surcharge, peak))]
