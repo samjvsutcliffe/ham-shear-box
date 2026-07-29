@@ -109,15 +109,21 @@
                 gf
                 length-scale
                 init-stress E))
-             (pd-inflection (- 1d0 1d-3))
+             (pd-inflection 0d0)
              )
         (format t "Estimated ductility ~E~%" ductility)
         (format t "Init stress ~E~%" init-stress)
         (format t "PD inflection point ~E~%" pd-inflection)
-        (make-mps-plastic-damage))
+        (make-mps-plastic-damage)) 
+      (cl-mpm:iterate-over-mps 
+        (cl-mpm:sim-mps sim)
+        (lambda (mp)
+          (cl-mpm/damage::set-mp-damage mp *damage*)))
       (let* ((sur-height h-x)
              (sur-size (list 0.06d0 sur-height))
-             (load surcharge-load))
+             ;(load surcharge-load)
+             (load (/ surcharge-load (- 1d0 *damage*)))
+             )
         (cl-mpm:iterate-over-mps
          (cl-mpm:sim-mps sim)
          (lambda (mp)
@@ -144,7 +150,7 @@
                      strain   strains
                      strain-n (cl-mpm/utils:voigt-copy strains)))))))
       (defparameter *mesh-resolution* h-x)
-      (setf (cl-mpm:sim-allow-mp-split sim) t)
+      (setf (cl-mpm:sim-allow-mp-split sim) nil)
       (setf (cl-mpm::sim-enable-damage sim) nil)
       (setf (cl-mpm::sim-velocity-algorithm sim) :QUASI-STATIC)
       (when (typep *sim* 'cl-mpm/damage::mpm-sim-damage)
@@ -167,7 +173,7 @@
                 (surcharge-load 72.5d3)
                 (epsilon-scale 1d2)
                 (piston-scale 1d0)
-                (piston-mps 2)
+                (piston-mps 0)
                 (init-stress 90d3)
                 (mp-refine 2))
   (defparameter *displacement-increment* 0d0)
@@ -308,11 +314,11 @@
          (overscale (if (uiop:getenv "OVER") (parse-float:parse-float (uiop:getenv "OVER")) 0d0))
          (mps 4)
          (scale 1d0)
-         ;; (epsilon-scale (* 1d2 (- 1d0 damage)))
-         (epsilon-scale 1d3)
+         (epsilon-scale (* 1d3 (- 1d0 damage)))
+         ;(epsilon-scale 1d3)
          (piston-scale 1d0)
-         (output-dir (format nil "./data/output-~F_0.5_~D_~f_~f_~F-~f/" refine mps scale damage overscale load))
-         ;; (output-dir (format nil "/nobackup/rmvn14/paper-1/plastic-damage-residual/output-~F_0.5_~D_~f_~f_~F-~f/" refine mps scale damage overscale load))
+         ;(output-dir (format nil "./data/output-~F_0.5_~D_~f_~f_~F-~f/" refine mps scale damage overscale load))
+         (output-dir (format nil "/nobackup/rmvn14/paper-1/plastic-damage-residual/output-~F_0.5_~D_~f_~f_~F-~f/" refine mps scale damage overscale load))
          )
     (setf *damage* damage)
     (format t "Refine: ~A~%" refine)
@@ -333,14 +339,14 @@
     (cl-mpm::domain-sort-mps *sim*)
 
 
-    ;(push (list :SCALAR "damage-tcs-c" #'cl-mpm/particle::mp-damage-compression) (cl-mpm::sim-output-list *sim*))
-    ;(push (list :SCALAR "damage-tcs-s" #'cl-mpm/particle::mp-damage-shear) (cl-mpm::sim-output-list *sim*))
-    ;(push (list :SCALAR "damage-tcs-t" #'cl-mpm/particle::mp-damage-tension) (cl-mpm::sim-output-list *sim*))
+    (push (list :SCALAR "damage-tcs-c" #'cl-mpm/particle::mp-damage-compression) (cl-mpm::sim-output-list *sim*))
+    (push (list :SCALAR "damage-tcs-s" #'cl-mpm/particle::mp-damage-shear) (cl-mpm::sim-output-list *sim*))
+    (push (list :SCALAR "damage-tcs-t" #'cl-mpm/particle::mp-damage-tension) (cl-mpm::sim-output-list *sim*))
     ;(push (list :VOIGT "sig_u" (lambda (mp) (cl-mpm/fastmaths:fast-scale
     ;                                         (cl-mpm/particle::mp-undamaged-stress mp)
     ;                                         (/ 1d0 (cl-mpm/particle::mp-deformation-jacobian-strain mp))))) (cl-mpm::sim-output-list *sim*))
     (run-adaptive :output-dir output-dir
-                  :displacement 1d-3
+                  :displacement 3d-3
                   :load-steps 20
                   :refine refine
                   :enable-plasticity t
