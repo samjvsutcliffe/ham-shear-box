@@ -54,26 +54,13 @@
                dnew)))))
       (format t "Rank ~D - Sim MPs: ~a~%" rank (length (cl-mpm:sim-mps sim))))))
 
-(defmethod cl-mpm/particle::post-damage-step ((mp cl-mpm/particle::particle-chalk-brittle) dt)
-  (with-accessors ((p cl-mpm/particle::mp-pressure)
-                   (def cl-mpm/particle::mp-deformation-gradient)
-                   (stress cl-mpm/particle::mp-stress)
-                   (damage cl-mpm/particle::mp-damage)
-                   (enable-damage cl-mpm/particle::mp-enable-damage)
-                   )
-      mp
-    ;; (cl-mpm/damage::apply-isotropic-degredation mp)
-    ;; (cl-mpm/damage::apply-vol-tensile-degredation mp)
-    (cl-mpm/damage::apply-tcs-degredation mp)
-    ))
-
 (defparameter *overscale* (if (uiop:getenv "OVER") (parse-float:parse-float (uiop:getenv "OVER")) 0d0))
 
 (defmpgen make-mps-plastic-damage
   'cl-mpm/particle::particle-chalk-brittle
   :E *elastic-constant*
   :nu 0.24d0
-  :kt-res-ratio (- 1d0 1d-9)
+  :kt-res-ratio 1d0
   :kc-res-ratio 0d0
   :friction-angle (cl-mpm/utils:deg-to-rad angle)
   :residual-friction (cl-mpm/utils:deg-to-rad 30d0)
@@ -93,7 +80,7 @@
                (mapcar (lambda (x) (* x e-scale)) size)
                :sim-type 'cl-mpm/dynamic-relaxation::mpm-sim-dr-damage-ul
                :args-list (list :enable-aggregate t
-                                :enable-fbar t
+                                :enable-fbar nil
                                 :gravity 0d0)
                ))
          (h (cl-mpm/mesh:mesh-resolution (cl-mpm:sim-mesh sim)))
@@ -130,7 +117,8 @@
       (let* ((dc (cl-mpm/particle::mp-damage-compression (aref (cl-mpm::sim-mps sim) 0)))
              (sur-height h-x)
              (sur-size (list 0.06d0 sur-height))
-             (load (/ (float surcharge-load 0d0) (- 1d0 dc)))
+             ;(load (/ (float surcharge-load 0d0) (- 1d0 dc)))
+             ;(load (/ (float surcharge-load 0d0) (- 1d0 *damage*)))
              (load (/ (float surcharge-load 0d0) 1d0))
              (gravity (if (> load 0d0)
                           (/ load (* density sur-height))
@@ -164,6 +152,11 @@
         (format t "Gravity ~F~%" gravity))
 
       (setf (cl-mpm:sim-allow-mp-split sim) nil)
+      (setf (cl-mpm::sim-enable-damage sim) nil)
+      (setf (cl-mpm/damage::sim-enable-length-localisation sim) t)
+      ;; (setf (cl-mpm::sim-mass-filter sim) 1d0)
+      (setf (cl-mpm::sim-allow-mp-damage-removal sim) nil)
+      (setf (cl-mpm::sim-mp-damage-removal-instant sim) nil)
       (cl-mpm/setup::setup-bcs
        sim)
       sim)))
@@ -237,8 +230,7 @@
      (+
       (cl-mpm/penalty::resolve-load-direction *shear-box-struct-left* normal)
       (cl-mpm/penalty::resolve-load-direction *shear-box-struct-right* normal)
-      )
-      )))
+      ))))
 
 (defun get-load-left ()
   (let ((normal (cl-mpm/utils:vector-from-list (list 1d0 0d0 0d0))))
@@ -289,12 +281,12 @@
      :criteria 1d-3
      :enable-damage enable-damage
      :enable-plastic enable-plasticity
-     :max-adaptive-steps 15
-     :min-adaptive-steps -8
+     :max-adaptive-steps 0
+     :min-adaptive-steps 0
      :max-damage-inc 0.5d0
-     :max-plastic-inc 1d2
-     :dt-scale 0.5d0
-     :save-vtk-dr t
+     :max-plastic-inc nil;1d4
+     :dt-scale 0.9d0
+     :save-vtk-dr nil
      :save-vtk-loadstep t
      :post-iter-step (lambda (i o e)
                        (format t "Penalty load ~E - aim ~E~%"
@@ -307,8 +299,7 @@
        (push (get-load) *data-v*)
        (push (cl-mpm/dynamic-relaxation::get-damage *sim*) *data-damage*))
      :loading-function (lambda (percent)
-                         (setf *displacement-increment* (* displacement percent)))))
-    )
+                         (setf *displacement-increment* (* displacement percent))))))
 
 
 (defparameter *damage* 0d0)
@@ -320,7 +311,7 @@
          (mps 4)
          (scale 1d0)
          (sample-scale 1d0)
-         (epsilon-scale 1d2)
+         (epsilon-scale (* 1d2 (- 1d0 damage)))
          (piston-scale 1d0)
          ;(output-dir (format nil "./data/output-~F_0.5_~D_~f_~f_~F-~f/" refine mps scale damage overscale load))
          (output-dir (format nil "/nobackup/rmvn14/paper-1/plastic-damage-residual/output-~F_0.5_~D_~f_~f_~F-~f/" refine mps scale damage overscale load))
@@ -336,29 +327,26 @@
       :surcharge-load load
       :friction 0d0
       :epsilon-scale epsilon-scale
-      :piston-scale piston-scale
-      )
+      :piston-scale piston-scale)
     (cl-mpm::domain-sort-mps *sim*)
 
     
 
-    (push (list :SCALAR "damage-tcs-c" #'cl-mpm/particle::mp-damage-compression) (cl-mpm::sim-output-list *sim*))
-    (push (list :SCALAR "damage-tcs-s" #'cl-mpm/particle::mp-damage-shear) (cl-mpm::sim-output-list *sim*))
-    (push (list :SCALAR "damage-tcs-t" #'cl-mpm/particle::mp-damage-tension) (cl-mpm::sim-output-list *sim*))
-    (push (list :VOIGT "sig_u" (lambda (mp) (cl-mpm/fastmaths:fast-scale
-                                             (cl-mpm/particle::mp-undamaged-stress mp)
-                                             (/ 1d0 (cl-mpm/particle::mp-deformation-jacobian-strain mp))))) (cl-mpm::sim-output-list *sim*))
+    ;(push (list :SCALAR "damage-tcs-c" #'cl-mpm/particle::mp-damage-compression) (cl-mpm::sim-output-list *sim*))
+    ;(push (list :SCALAR "damage-tcs-s" #'cl-mpm/particle::mp-damage-shear) (cl-mpm::sim-output-list *sim*))
+    ;(push (list :SCALAR "damage-tcs-t" #'cl-mpm/particle::mp-damage-tension) (cl-mpm::sim-output-list *sim*))
+    ;(push (list :VOIGT "sig_u" (lambda (mp) (cl-mpm/fastmaths:fast-scale
+    ;                                         (cl-mpm/particle::mp-undamaged-stress mp)
+    ;                                         (/ 1d0 (cl-mpm/particle::mp-deformation-jacobian-strain mp))))) (cl-mpm::sim-output-list *sim*))
     (run-adaptive :output-dir output-dir
-                  :displacement 3d-3
-                  :load-steps 200
+                  :displacement 4d-3
+                  :load-steps 25
                   :refine refine
                   :time-scale scale
                   :sample-scale sample-scale
                   :enable-plasticity t
                   :enable-damage nil
-                  :surcharge-load load
-                  )
-    ))
+                  :surcharge-load load)))
 
 (let ((threads (parse-integer (if (uiop:getenv "OMP_NUM_THREADS") (uiop:getenv "OMP_NUM_THREADS") "1"))))
   ;(setf lparallel:*kernel* (lparallel:make-kernel threads :name "custom-kernel"))
